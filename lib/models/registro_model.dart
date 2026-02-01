@@ -1,3 +1,40 @@
+//lib/models/registro_model.dart
+
+class Pension {
+  final int id;
+  final String rfc;
+  final String nombre;
+  final String ur;
+  final double importe;
+  final String qnaSubida;
+  final String qnaReal;
+  final String anio;
+
+  Pension({
+    required this.id,
+    required this.rfc,
+    required this.nombre,
+    required this.ur,
+    required this.importe,
+    required this.qnaSubida,
+    required this.qnaReal,
+    required this.anio,
+  });
+
+  factory Pension.fromJson(Map<String, dynamic> json) {
+    return Pension(
+      id: json['id'] as int,
+      rfc: json['rfc'] ?? "",
+      nombre: json['nombre'] ?? "",
+      ur: json['ur'] ?? "",
+      importe: (json['importe'] as num?)?.toDouble() ?? 0.0,
+      qnaSubida: json['qna_subida'] ?? "",
+      qnaReal: json['qnareal'] ?? "",
+      anio: json['anio'] ?? "",
+    );
+  }
+}
+
 class RegistroPlantilla {
   final String? numEmp;
   final String? rfc;
@@ -32,6 +69,8 @@ class RegistroPlantilla {
   final String? nivel;
   final String? horas;
   final String? numCheq;
+  // --- NUEVO CAMPO PARA PENSIONES ---
+  final List<Pension> pensiones;
 
   RegistroPlantilla({
     this.numEmp, this.rfc, this.curp, this.nombre, this.ur,
@@ -42,6 +81,7 @@ class RegistroPlantilla {
     this.banco, this.numCta, this.clabe, this.cr, this.clues,
     this.desClues, this.qna, this.anio, this.tipoTrab1,
     this.tipoTrab2, this.nivel, this.horas, this.numCheq,
+    this.pensiones = const [], // Valor por defecto lista vacía
   });
 
   factory RegistroPlantilla.fromJson(Map<String, dynamic> json) {
@@ -63,7 +103,6 @@ class RegistroPlantilla {
       figf: json['FIGF'],
       fissa: json['FISSA'],
       freing: json['FREING'],
-      // Manejo seguro de decimales (MySQL Decimal a Dart Double)
       per: (json['PER'] as num?)?.toDouble() ?? 0.0,
       ded: (json['DED'] as num?)?.toDouble() ?? 0.0,
       neto: (json['NETO'] as num?)?.toDouble() ?? 0.0,
@@ -80,6 +119,10 @@ class RegistroPlantilla {
       nivel: json['NIVEL'],
       horas: json['HORAS'],
       numCheq: json['NUMCHEQ'],
+      // --- MAPEO DE LA LISTA DE PENSIONES ---
+      pensiones: (json['pensiones'] as List?)
+              ?.map((p) => Pension.fromJson(p))
+              .toList() ?? [],
     );
   }
 }

@@ -1,3 +1,4 @@
+//lib/screens/detalle_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; 
 import 'package:intl/intl.dart';
@@ -64,10 +65,13 @@ class DetalleRegistroScreen extends StatelessWidget {
     String textoACopiar = "*$titulo*\n";
     for (var widget in children) {
       if (widget is Padding) {
-        final row = widget.child as Row;
-        final label = (row.children[0] as Expanded).child as Text;
-        final value = (row.children[1] as Expanded).child as Text;
-        textoACopiar += "${label.data}: ${value.data}\n";
+        // Intentamos extraer texto de Row o Column hijos
+        try {
+          final row = widget.child as Row;
+          final label = (row.children[0] as Expanded).child as Text;
+          final value = (row.children[1] as Expanded).child as Text;
+          textoACopiar += "${label.data}: ${value.data}\n";
+        } catch (_) {}
       }
     }
     _copiarTexto(context, titulo, textoACopiar);
@@ -174,6 +178,10 @@ class DetalleRegistroScreen extends StatelessWidget {
                 child: Column(
                   children: [
                     const SizedBox(height: 10),
+                    // --- SECCIÓN DE PENSIONES (SOLO SI EXISTEN) ---
+                    if (registro.pensiones.isNotEmpty)
+                      _buildPensionSection(context),
+
                     _buildSection(
                       context,
                       "Datos Personales",
@@ -224,6 +232,65 @@ class DetalleRegistroScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // --- WIDGET PARA LA SECCIÓN DE PENSIONES ---
+  Widget _buildPensionSection(BuildContext context) {
+    final fmt = NumberFormat.currency(locale: 'es_MX', symbol: '\$');
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade50,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: Colors.orange.shade200),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.family_restroom, color: Colors.orange, size: 20),
+                  SizedBox(width: 10),
+                  Text("Pensiones Alimenticias", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.orange)),
+                ],
+              ),
+              IconButton(
+                icon: const Icon(Icons.copy_rounded, size: 20, color: Colors.orange),
+                onPressed: () {
+                  String texto = "*PENSIONES ALIMENTICIAS*\n";
+                  for (var p in registro.pensiones) {
+                    texto += "Beneficiario: ${p.nombre}\nImporte: ${fmt.format(p.importe)}\nUR: ${p.ur}/${p.qnaReal} \n---\n";
+                  }
+                  _copiarTexto(context, "Pensiones", texto);
+                },
+              ),
+            ],
+          ),
+          const Divider(height: 25, color: Colors.orange),
+          ...registro.pensiones.map((p) => Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(p.nombre, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text("Importe: ${fmt.format(p.importe)}", style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                    Text("UR: ${p.ur}/${p.qnaReal}", style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                  ],
+                ),
+              ],
+            ),
+          )),
+        ],
       ),
     );
   }
@@ -289,7 +356,6 @@ class DetalleRegistroScreen extends StatelessWidget {
             ],
           ),
         ),
-        // --- BOTÓN COPIAR PARA MONTOS ---
         Positioned(
           top: 5,
           right: 5,
