@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // Importante para el guardado
 import '../services/api_service.dart';
 import 'busqueda_screen.dart';
 
@@ -15,6 +16,42 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _passController = TextEditingController();
   bool _isLoading = false;
   bool _obscureText = true;
+  
+  // --- NUEVAS VARIABLES PARA RECORDAR PASS ---
+  bool _recordarPass = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarCredencialesGuardadas(); // Cargar al iniciar la pantalla
+  }
+
+  // Carga los datos desde el almacenamiento local
+  Future<void> _cargarCredencialesGuardadas() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _recordarPass = prefs.getBool('recordar_pass') ?? false;
+      if (_recordarPass) {
+        _userController.text = prefs.getString('user_pref') ?? "";
+        _passController.text = prefs.getString('pass_pref') ?? "";
+      }
+    });
+  }
+
+  // Guarda o borra según el estado del checkbox
+  Future<void> _gestionarPersistencia() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (_recordarPass) {
+      await prefs.setBool('recordar_pass', true);
+      await prefs.setString('user_pref', _userController.text);
+      await prefs.setString('pass_pref', _passController.text);
+    } else {
+      // Si el usuario desmarca la opción, limpiamos los datos guardados
+      await prefs.remove('recordar_pass');
+      await prefs.remove('user_pref');
+      await prefs.remove('pass_pref');
+    }
+  }
 
   void _handleLogin() async {
     setState(() => _isLoading = true);
@@ -22,16 +59,15 @@ class _LoginScreenState extends State<LoginScreen> {
       final api = ApiService();
       final response = await api.login(_userController.text, _passController.text);
       
-      // IMPRESIÓN DE DEPURACIÓN (Revisa tu consola de VS Code / Android Studio)
       debugPrint("Respuesta del servidor: $response");
 
       if (response['success'] == true) {
+        // --- GUARDAR O LIMPIAR CREDENCIALES ANTES DE NAVEGAR ---
+        await _gestionarPersistencia();
+
         if (!mounted) return;
 
-        // --- PROCESAMIENTO DE NIVEL ---
         int nivelUsuario = int.tryParse(response['nivel']?.toString() ?? "2") ?? 2;
-
-        // --- PROCESAMIENTO DE BITMASK (TABLAS_AUTORIZADAS) ---
         var rawPermisos = response['tablas_autorizadas'];
         int permisosBitmask = int.tryParse(rawPermisos?.toString() ?? "0") ?? 0;
 
@@ -51,7 +87,6 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       if (!mounted) return;
 
-      // --- LÓGICA DE DETECCIÓN DE ERROR DE HORARIO ---
       String errorMsg = e.toString().replaceAll("Exception: ", "");
       bool esHorario = errorMsg.toLowerCase().contains("horario");
 
@@ -73,7 +108,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       );
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -168,7 +203,18 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 30),
+                        
+                        // --- CHECKBOX DE RECORDAR CREDENCIALES ---
+                        CheckboxListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text("Recordar credenciales", style: TextStyle(fontSize: 14)),
+                          value: _recordarPass,
+                          activeColor: Colors.indigo,
+                          controlAffinity: ListTileControlAffinity.leading,
+                          onChanged: (val) => setState(() => _recordarPass = val ?? false),
+                        ),
+
+                        const SizedBox(height: 10),
                         _isLoading 
                           ? const CircularProgressIndicator()
                           : SizedBox(

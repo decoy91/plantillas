@@ -318,9 +318,23 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
         item.nombre ?? "",
         style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
       ),
-      subtitle: Text(
-        "QNA: ${item.qna} | AÑO: ${item.anio} | RFC: ${item.rfc}",
-        style: const TextStyle(fontSize: 11),
+      subtitle: Text.rich(
+        TextSpan(
+          style: const TextStyle(fontSize: 11, color: Colors.grey),
+          children: [
+            const TextSpan(text: "QNA: "),
+            TextSpan(
+              text: "${item.qna}",
+              style: const TextStyle(color: Colors.indigo, fontWeight: FontWeight.bold),
+            ),
+            const TextSpan(text: " | AÑO: "),
+            TextSpan(
+              text: "${item.anio}",
+              style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
+            ),
+            TextSpan(text: " | RFC: ${item.rfc}"),
+          ],
+        ),
       ),
       trailing: const Icon(Icons.arrow_forward_ios, size: 14),
       onTap: () => Navigator.push(
