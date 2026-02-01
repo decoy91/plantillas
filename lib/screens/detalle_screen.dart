@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; 
 import 'package:intl/intl.dart';
+import 'package:plantilla/screens/desglose_nomina_screen.dart';
 import 'package:plantilla/services/pdf_service.dart';
 import 'package:share_plus/share_plus.dart'; 
 import '../models/registro_model.dart';
@@ -335,44 +336,75 @@ class DetalleRegistroScreen extends StatelessWidget {
   }
 
   Widget _buildFinancialCard(BuildContext context) {
-    final int mascaraActual = int.tryParse(permisos.toString()) ?? 0;
-    final fmt = NumberFormat.currency(locale: 'es_MX', symbol: '\$');
+  final int mascaraActual = int.tryParse(permisos.toString()) ?? 0;
+  final fmt = NumberFormat.currency(locale: 'es_MX', symbol: '\$');
 
-    return Stack(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(colors: [Colors.indigo.shade700, Colors.indigo.shade500]),
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [BoxShadow(color: Colors.indigo.withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 5))],
+  // Usamos Material e InkWell para que la tarjeta sea interactiva (clickable)
+  return Material(
+    color: Colors.transparent,
+    child: InkWell(
+      onTap: () {
+        // Navegación a la nueva pantalla de desglose
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => DesgloseNominaScreen(registro: registro),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _moneyCol("PERCEPCIÓN", (mascaraActual & bitPer) != 0, registro.per, Colors.white),
-              _moneyCol("DEDUCCIÓN", (mascaraActual & bitDed) != 0, registro.ded, Colors.white),
-              _moneyCol("NETO", (mascaraActual & bitNeto) != 0, registro.neto, Colors.greenAccent, isBold: true),
-            ],
+        );
+      },
+      borderRadius: BorderRadius.circular(20),
+      child: Stack(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.indigo.shade700, Colors.indigo.shade500],
+              ),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.indigo.withValues(alpha: 0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 5),
+                )
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _moneyCol("PERCEPCIÓN", (mascaraActual & bitPer) != 0, registro.per, Colors.white),
+                _moneyCol("DEDUCCIÓN", (mascaraActual & bitDed) != 0, registro.ded, Colors.white),
+                _moneyCol("NETO", (mascaraActual & bitNeto) != 0, registro.neto, Colors.greenAccent, isBold: true),
+              ],
+            ),
           ),
-        ),
-        Positioned(
-          top: 5,
-          right: 5,
-          child: IconButton(
-            icon: const Icon(Icons.copy_rounded, size: 18, color: Colors.white70),
-            onPressed: () {
-              String texto = "*DETALLE ECONÓMICO*\n";
-              texto += "Percepciones: ${((mascaraActual & bitPer) != 0) ? fmt.format(registro.per) : "****"}\n";
-              texto += "Deducciones: ${((mascaraActual & bitDed) != 0) ? fmt.format(registro.ded) : "****"}\n";
-              texto += "Neto: ${((mascaraActual & bitNeto) != 0) ? fmt.format(registro.neto) : "****"}";
-              _copiarTexto(context, "Montos Económicos", texto);
-            },
+          // Botón de copiar (Se mantiene independiente sobre la tarjeta)
+          Positioned(
+            top: 5,
+            right: 5,
+            child: IconButton(
+              icon: const Icon(Icons.copy_rounded, size: 18, color: Colors.white70),
+              onPressed: () {
+                String texto = "*DETALLE ECONÓMICO*\n";
+                texto += "Percepciones: ${((mascaraActual & bitPer) != 0) ? fmt.format(registro.per) : "****"}\n";
+                texto += "Deducciones: ${((mascaraActual & bitDed) != 0) ? fmt.format(registro.ded) : "****"}\n";
+                texto += "Neto: ${((mascaraActual & bitNeto) != 0) ? fmt.format(registro.neto) : "****"}";
+                _copiarTexto(context, "Montos Económicos", texto);
+              },
+            ),
           ),
-        ),
-      ],
-    );
-  }
+          // Pequeño indicador visual de que es expandible (Opcional)
+          Positioned(
+            bottom: 8,
+            right: 15,
+            child: Icon(Icons.touch_app, size: 14, color: Colors.white.withValues(alpha: 0.5)),
+          ),
+        ],
+      ),
+    ),
+  );
+}
 
   Widget _moneyCol(String label, bool tienePermiso, double val, Color color, {bool isBold = false}) {
     final fmt = NumberFormat.currency(locale: 'es_MX', symbol: '\$');

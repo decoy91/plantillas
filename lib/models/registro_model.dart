@@ -24,15 +24,26 @@ class Pension {
   factory Pension.fromJson(Map<String, dynamic> json) {
     return Pension(
       id: json['id'] as int,
-      rfc: json['rfc'] ?? "",
-      nombre: json['nombre'] ?? "",
-      ur: json['ur'] ?? "",
-      importe: (json['importe'] as num?)?.toDouble() ?? 0.0,
-      qnaSubida: json['qna_subida'] ?? "",
-      qnaReal: json['qnareal'] ?? "",
-      anio: json['anio'] ?? "",
+      rfc: json['rfc']?.toString() ?? "",
+      nombre: json['nombre']?.toString() ?? "",
+      ur: json['ur']?.toString() ?? "",
+      importe: _toDouble(json['importe']), // Cambio seguro
+      qnaSubida: json['qna_subida']?.toString() ?? "",
+      qnaReal: json['qnareal']?.toString() ?? "",
+      anio: json['anio']?.toString() ?? "",
     );
   }
+}
+
+/// Función auxiliar para convertir cualquier tipo de dato a double de forma segura.
+/// Evita el error "String is not a subtype of num".
+double _toDouble(dynamic value) {
+  if (value == null) return 0.0;
+  if (value is num) return value.toDouble();
+  if (value is String) {
+    return double.tryParse(value.replaceAll(',', '')) ?? 0.0;
+  }
+  return 0.0;
 }
 
 class RegistroPlantilla {
@@ -69,8 +80,8 @@ class RegistroPlantilla {
   final String? nivel;
   final String? horas;
   final String? numCheq;
-  // --- NUEVO CAMPO PARA PENSIONES ---
   final List<Pension> pensiones;
+  final Map<String, double> desglose;
 
   RegistroPlantilla({
     this.numEmp, this.rfc, this.curp, this.nombre, this.ur,
@@ -81,48 +92,60 @@ class RegistroPlantilla {
     this.banco, this.numCta, this.clabe, this.cr, this.clues,
     this.desClues, this.qna, this.anio, this.tipoTrab1,
     this.tipoTrab2, this.nivel, this.horas, this.numCheq,
-    this.pensiones = const [], // Valor por defecto lista vacía
+    this.pensiones = const [],
+    this.desglose = const {},
   });
 
   factory RegistroPlantilla.fromJson(Map<String, dynamic> json) {
+    // Lógica para detectar dinámicamente conceptos P y D con valor > 0 de forma segura
+    final Map<String, double> mapaConceptos = {};
+    json.forEach((key, value) {
+      if ((key.startsWith('P') || key.startsWith('D')) && value != null) {
+        final double monto = _toDouble(value); // Uso de conversión segura
+        if (monto > 0) {
+          mapaConceptos[key] = monto;
+        }
+      }
+    });
+
     return RegistroPlantilla(
-      numEmp: json['NUMEMP'],
-      rfc: json['RFC'],
-      curp: json['CURP'],
-      nombre: json['NOMBRE'],
-      ur: json['UR'],
-      tipoPersonal: json['TIPO_PERSONAL'],
-      programa: json['PROGRAMA'],
-      ff: json['FF'],
-      noFuente: json['NoFUENTE'],
-      codigo: json['CODIGO'],
-      puesto: json['PUESTO'],
-      rama: json['RAMA'],
-      clavePresupuestal: json['CLAVE_PRESUPUESTAL'],
-      ze: json['ZE'],
-      figf: json['FIGF'],
-      fissa: json['FISSA'],
-      freing: json['FREING'],
-      per: (json['PER'] as num?)?.toDouble() ?? 0.0,
-      ded: (json['DED'] as num?)?.toDouble() ?? 0.0,
-      neto: (json['NETO'] as num?)?.toDouble() ?? 0.0,
-      banco: json['BANCO'],
-      numCta: json['NUMCTA'],
-      clabe: json['CLABE'],
-      cr: json['CR'],
-      clues: json['CLUES'],
-      desClues: json['DES_CLUES'],
-      qna: json['QNA'],
-      anio: json['ANIO'],
-      tipoTrab1: json['TIPOTRAB1'],
-      tipoTrab2: json['TIPOTRAB2'],
-      nivel: json['NIVEL'],
-      horas: json['HORAS'],
-      numCheq: json['NUMCHEQ'],
-      // --- MAPEO DE LA LISTA DE PENSIONES ---
+      numEmp: json['NUMEMP']?.toString(),
+      rfc: json['RFC']?.toString(),
+      curp: json['CURP']?.toString(),
+      nombre: json['NOMBRE']?.toString(),
+      ur: json['UR']?.toString(),
+      tipoPersonal: json['TIPO_PERSONAL']?.toString(),
+      programa: json['PROGRAMA']?.toString(),
+      ff: json['FF']?.toString(),
+      noFuente: json['NoFUENTE']?.toString(),
+      codigo: json['CODIGO']?.toString(),
+      puesto: json['PUESTO']?.toString(),
+      rama: json['RAMA']?.toString(),
+      clavePresupuestal: json['CLAVE_PRESUPUESTAL']?.toString(),
+      ze: json['ZE']?.toString(),
+      figf: json['FIGF']?.toString(),
+      fissa: json['FISSA']?.toString(),
+      freing: json['FREING']?.toString(),
+      per: _toDouble(json['PER']),
+      ded: _toDouble(json['DED']),
+      neto: _toDouble(json['NETO']),
+      banco: json['BANCO']?.toString(),
+      numCta: json['NUMCTA']?.toString(),
+      clabe: json['CLABE']?.toString(),
+      cr: json['CR']?.toString(),
+      clues: json['CLUES']?.toString(),
+      desClues: json['DES_CLUES']?.toString(),
+      qna: json['QNA']?.toString(),
+      anio: json['ANIO']?.toString(),
+      tipoTrab1: json['TIPOTRAB1']?.toString(),
+      tipoTrab2: json['TIPOTRAB2']?.toString(),
+      nivel: json['NIVEL']?.toString(),
+      horas: json['HORAS']?.toString(),
+      numCheq: json['NUMCHEQ']?.toString(),
       pensiones: (json['pensiones'] as List?)
               ?.map((p) => Pension.fromJson(p))
               .toList() ?? [],
+      desglose: mapaConceptos,
     );
   }
 }
