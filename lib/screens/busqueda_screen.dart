@@ -1,3 +1,4 @@
+//lib/screens/busqueda_screen.dart
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -32,6 +33,7 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
   List<RegistroPlantilla> _resultados = [];
   bool _isSearching = false;
   bool _isGrouped = true;
+  // Se mantiene por compatibilidad de código, aunque ya no se usará Timer para disparar búsquedas
   Timer? _debounce;
 
   final Map<String, List<RegistroPlantilla>> _cacheBusquedas = {};
@@ -159,31 +161,35 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
         ) ?? false;
   }
 
-  void _onSearchChanged(String query) async {
-    if (_debounce?.isActive ?? false) _debounce!.cancel();
+  // --- FUNCIÓN MODIFICADA PARA BUSCAR SOLO POR ENTER O ACCIÓN EXPLÍCITA ---
+  void _ejecutarBusqueda(String query) async {
+    query = query.trim().toUpperCase();
     if (query.length < 3) {
       setState(() => _resultados = []);
       return;
     }
+    
+    setState(() => _isSearching = true);
+
     if (_cacheBusquedas.containsKey(query)) {
-      setState(() {
-        _resultados = _cacheBusquedas[query]!;
-        _isSearching = false;
-      });
+      if (mounted) {
+        setState(() {
+          _resultados = _cacheBusquedas[query]!;
+          _isSearching = false;
+        });
+      }
       return;
     }
-    _debounce = Timer(const Duration(milliseconds: 900), () async {
-      setState(() => _isSearching = true);
-      try {
-        final res = await _apiService.buscarRegistros(query);
-        _cacheBusquedas[query] = res;
-        if (mounted) setState(() => _resultados = res);
-      } catch (e) {
-        debugPrint("Error en búsqueda: $e");
-      } finally {
-        if (mounted) setState(() => _isSearching = false);
-      }
-    });
+
+    try {
+      final res = await _apiService.buscarRegistros(query);
+      _cacheBusquedas[query] = res;
+      if (mounted) setState(() => _resultados = res);
+    } catch (e) {
+      debugPrint("Error en búsqueda: $e");
+    } finally {
+      if (mounted) setState(() => _isSearching = false);
+    }
   }
 
   @override
@@ -233,7 +239,6 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
             ),
           ],
         ),
-        // --- SE AGREGÓ EL SAFEAREA AQUÍ ---
         body: SafeArea(
           child: Column(
             children: [
@@ -241,7 +246,9 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
                 padding: const EdgeInsets.all(12.0),
                 child: TextField(
                   controller: _searchController,
-                  onChanged: _onSearchChanged,
+                  // Se eliminó _onSearchChanged para evitar búsquedas automáticas
+                  onSubmitted: (value) => _ejecutarBusqueda(value),
+                  textInputAction: TextInputAction.search, // Cambia el Enter por una Lupa
                   textCapitalization: TextCapitalization.characters,
                   decoration: InputDecoration(
                     hintText: "BUSCAR POR NOMBRE O RFC...",
@@ -249,7 +256,13 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
                     filled: true,
                     fillColor: Colors.white,
                     suffixIcon: _searchController.text.isNotEmpty
-                        ? IconButton(icon: const Icon(Icons.clear), onPressed: () { _searchController.clear(); _onSearchChanged(""); })
+                        ? IconButton(
+                            icon: const Icon(Icons.clear), 
+                            onPressed: () { 
+                              _searchController.clear(); 
+                              setState(() => _resultados = []); 
+                            }
+                          )
                         : null,
                     border: const OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(15))),
                   ),
@@ -270,7 +283,6 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
 
   Widget _buildGroupedList(Map<String, List<RegistroPlantilla>> agrupados, List<String> listaAnios) {
     return ListView.builder(
-      // Se agregó padding inferior extra por si acaso
       padding: const EdgeInsets.fromLTRB(10, 0, 10, 20),
       itemCount: listaAnios.length,
       itemBuilder: (context, index) {
@@ -294,7 +306,6 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
 
   Widget _buildFlatList() {
     return ListView.builder(
-      // Se agregó padding inferior extra por si acaso
       padding: const EdgeInsets.fromLTRB(10, 0, 10, 20),
       itemCount: _resultados.length,
       itemBuilder: (context, index) => Card(

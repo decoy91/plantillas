@@ -1,5 +1,4 @@
 //lib/models/registro_model.dart
-
 class Pension {
   final int id;
   final String rfc;
@@ -27,7 +26,7 @@ class Pension {
       rfc: json['rfc']?.toString() ?? "",
       nombre: json['nombre']?.toString() ?? "",
       ur: json['ur']?.toString() ?? "",
-      importe: _toDouble(json['importe']), // Cambio seguro
+      importe: _toDouble(json['importe']),
       qnaSubida: json['qna_subida']?.toString() ?? "",
       qnaReal: json['qnareal']?.toString() ?? "",
       anio: json['anio']?.toString() ?? "",
@@ -35,8 +34,6 @@ class Pension {
   }
 }
 
-/// Función auxiliar para convertir cualquier tipo de dato a double de forma segura.
-/// Evita el error "String is not a subtype of num".
 double _toDouble(dynamic value) {
   if (value == null) return 0.0;
   if (value is num) return value.toDouble();
@@ -80,8 +77,11 @@ class RegistroPlantilla {
   final String? nivel;
   final String? horas;
   final String? numCheq;
+  
+  // Nuevos campos para desgloses separados
   final List<Pension> pensiones;
-  final Map<String, double> desglose;
+  final Map<String, dynamic> desgloseOrdinario;
+  final List<Map<String, dynamic>> desglosesExtras;
 
   RegistroPlantilla({
     this.numEmp, this.rfc, this.curp, this.nombre, this.ur,
@@ -93,21 +93,11 @@ class RegistroPlantilla {
     this.desClues, this.qna, this.anio, this.tipoTrab1,
     this.tipoTrab2, this.nivel, this.horas, this.numCheq,
     this.pensiones = const [],
-    this.desglose = const {},
+    this.desgloseOrdinario = const {},
+    this.desglosesExtras = const [],
   });
 
   factory RegistroPlantilla.fromJson(Map<String, dynamic> json) {
-    // Lógica para detectar dinámicamente conceptos P y D con valor > 0 de forma segura
-    final Map<String, double> mapaConceptos = {};
-    json.forEach((key, value) {
-      if ((key.startsWith('P') || key.startsWith('D')) && value != null) {
-        final double monto = _toDouble(value); // Uso de conversión segura
-        if (monto > 0) {
-          mapaConceptos[key] = monto;
-        }
-      }
-    });
-
     return RegistroPlantilla(
       numEmp: json['NUMEMP']?.toString(),
       rfc: json['RFC']?.toString(),
@@ -145,7 +135,10 @@ class RegistroPlantilla {
       pensiones: (json['pensiones'] as List?)
               ?.map((p) => Pension.fromJson(p))
               .toList() ?? [],
-      desglose: mapaConceptos,
+      desgloseOrdinario: json['desglose_ordinario'] as Map<String, dynamic>? ?? {},
+      desglosesExtras: (json['desgloses_extras'] as List?)
+              ?.map((e) => e as Map<String, dynamic>)
+              .toList() ?? [],
     );
   }
 }
