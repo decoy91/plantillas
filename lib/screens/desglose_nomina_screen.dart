@@ -1,6 +1,6 @@
-//lib/screens/desglose_nomina_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart'; // Importante para kIsWeb
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart'; 
 import 'package:pdf/widgets.dart' as pw; 
@@ -33,12 +33,11 @@ class DesgloseNominaScreen extends StatelessWidget {
         margin: const pw.EdgeInsets.all(20),
         build: (pw.Context context) {
           return pw.Stack(
-            alignment: pw.Alignment.center, // Alineación base para el Stack
+            alignment: pw.Alignment.center, 
             children: [
-              // --- MARCA DE AGUA CORREGIDA ---
               pw.Center(
                 child: pw.Opacity(
-                  opacity: 0.07, // Un poco más tenue para no estorbar
+                  opacity: 0.07, 
                   child: pw.Transform.rotate(
                     angle: 0.5,
                     child: pw.Text(
@@ -52,7 +51,6 @@ class DesgloseNominaScreen extends StatelessWidget {
                   ),
                 ),
               ),
-              // --- CONTENIDO PRINCIPAL ---
               pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
@@ -94,11 +92,6 @@ class DesgloseNominaScreen extends StatelessWidget {
                   ],
                   pw.Spacer(),
                   pw.Divider(thickness: 1.5, color: PdfColors.indigo),
-                  // pw.Align(
-                  //   alignment: pw.Alignment.centerRight,
-                  //   child: pw.Text("LÍQUIDO TOTAL A PAGAR: ${fmt.format(_getNetoTotal())}",
-                  //       style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColors.indigo)),
-                  // ),
                 ],
               ),
             ],
@@ -110,7 +103,6 @@ class DesgloseNominaScreen extends StatelessWidget {
     await Printing.sharePdf(bytes: await pdf.save(), filename: 'Desglose_${registro.rfc}.pdf');
   }
 
-  // WIDGET PARA TABLA CON TOTAL EN EL ENCABEZADO
   pw.Widget _buildTablaPDF(String titulo, List<MapEntry<String, double>> items, PdfColor color, double fontSize, NumberFormat fmt, double montoTotal) {
     if (items.isEmpty) return pw.SizedBox();
     return pw.Column(children: [
@@ -169,15 +161,12 @@ class DesgloseNominaScreen extends StatelessWidget {
 
   void _copiarAlPortapapeles(BuildContext context) {
     final fmt = NumberFormat.currency(locale: 'es_MX', symbol: '\$');
-    
-    // 1. Encabezado General
     String texto = "📄 *DESGLOSE DE NÓMINA*\n";
     texto += "👤 *${registro.nombre}*\n";
     texto += "🆔 RFC: ${registro.rfc}\n";
     texto += "📅 QNA: ${registro.qna} | AÑO: ${registro.anio}\n";
     texto += "----------------------------------\n\n";
 
-    // 2. Procesar Bloque Ordinario
     texto += "🔹 *PAGOS ORDINARIOS*\n";
     final perOrd = _filtrarConceptos(registro.desgloseOrdinario, 'P');
     final dedOrd = _filtrarConceptos(registro.desgloseOrdinario, 'D');
@@ -199,38 +188,26 @@ class DesgloseNominaScreen extends StatelessWidget {
     }
     texto += "*Neto Ordinario:* ${fmt.format(registro.per - registro.ded)}\n\n";
 
-    // 3. Procesar Bloques Extraordinarios (si existen)
     if (registro.desglosesExtras.isNotEmpty) {
       texto += "----------------------------------\n";
       texto += "🔸 *PAGOS EXTRAORDINARIOS*\n";
-      
       for (var extra in registro.desglosesExtras) {
         texto += "\n📌 *Concepto: ${extra['qna_label']}*\n";
-        
         final perEx = _filtrarConceptos(extra['conceptos'], 'P');
         final dedEx = _filtrarConceptos(extra['conceptos'], 'D');
-
         if (perEx.isNotEmpty) {
-          for (var e in perEx) {
-            texto += "  • ${e.key}: ${fmt.format(e.value)}\n";
-          }
+          for (var e in perEx) { texto += "  • ${e.key}: ${fmt.format(e.value)}\n"; }
         }
         if (dedEx.isNotEmpty) {
-          for (var e in dedEx) {
-            texto += "  • ${e.key}: ${fmt.format(e.value)}\n";
-          }
+          for (var e in dedEx) { texto += "  • ${e.key}: ${fmt.format(e.value)}\n"; }
         }
         texto += "  *Subtotal Extra:* ${fmt.format((extra['per'] ?? 0) - (extra['ded'] ?? 0))}\n";
       }
     }
-
-    // 4. Pie de página con el Total Global
     texto += "\n========================\n";
     texto += "💰 *LÍQUIDO TOTAL: ${fmt.format(_getNetoTotal())}*";
 
-    // Copiar al sistema
     Clipboard.setData(ClipboardData(text: texto));
-    
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text("Desglose completo copiado al portapapeles"),
@@ -244,63 +221,73 @@ class DesgloseNominaScreen extends StatelessWidget {
     final fmt = NumberFormat.currency(locale: 'es_MX', symbol: '\$');
     final perOrdinarias = _filtrarConceptos(registro.desgloseOrdinario, 'P');
     final dedOrdinarias = _filtrarConceptos(registro.desgloseOrdinario, 'D');
+    final double maxContentWidth = kIsWeb ? 850 : double.infinity;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Desglose de Nómina"),
-        backgroundColor: Colors.indigo,
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.share),
-            tooltip: "Exportar PDF",
-            onPressed: () => _exportarPDF(),
-          ),
-          IconButton(
-            icon: const Icon(Icons.copy_all_rounded),
-            onPressed: () => _copiarAlPortapapeles(context),
-          ),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _buildBannerInfo(fmt),
-          const SizedBox(height: 20),
-          const _HeaderSeccion(titulo: "PAGOS ORDINARIOS", icono: Icons.account_balance_wallet),
-          _buildCardGrupo("PERCEPCIONES", perOrdinarias, Colors.green, registro.per),
-          _buildCardGrupo("DEDUCCIONES", dedOrdinarias, Colors.red, registro.ded),
-          if (registro.desglosesExtras.isNotEmpty) ...[
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 20),
-              child: _HeaderSeccion(titulo: "PAGOS EXTRAORDINARIOS", icono: Icons.stars, color: Colors.orange),
+    return 
+    SelectionArea(
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text("Desglose de Nómina"),
+          backgroundColor: Colors.indigo,
+          foregroundColor: Colors.white,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.share),
+              tooltip: "Exportar PDF",
+              onPressed: () => _exportarPDF(),
             ),
-            ...registro.desglosesExtras.map((extra) {
-              final perExtras = _filtrarConceptos(extra['conceptos'], 'P');
-              final dedExtras = _filtrarConceptos(extra['conceptos'], 'D');
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(left: 8, bottom: 8),
-                    child: Text("Concepto: ${extra['qna_label']}",
-                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
-                  ),
-                  _buildCardGrupo("PERCEPCIONES EXTRA", perExtras, Colors.orange, (extra['per'] as num).toDouble()),
-                  _buildCardGrupo("DEDUCCIONES EXTRA", dedExtras, Colors.blueGrey, (extra['ded'] as num).toDouble()),
-                  const SizedBox(height: 16),
-                ],
-              );
-            }),
+            IconButton(
+              icon: const Icon(Icons.copy_all_rounded),
+              onPressed: () => _copiarAlPortapapeles(context),
+            ),
           ],
-        ],
+        ),
+        body: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: maxContentWidth),
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  _buildBannerInfo(fmt),
+                  const SizedBox(height: 20),
+                  const _HeaderSeccion(titulo: "PAGOS ORDINARIOS", icono: Icons.account_balance_wallet),
+                  _buildCardGrupo("PERCEPCIONES", perOrdinarias, Colors.green, registro.per),
+                  _buildCardGrupo("DEDUCCIONES", dedOrdinarias, Colors.red, registro.ded),
+                  if (registro.desglosesExtras.isNotEmpty) ...[
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 20),
+                      child: _HeaderSeccion(titulo: "PAGOS EXTRAORDINARIOS", icono: Icons.stars, color: Colors.orange),
+                    ),
+                    ...registro.desglosesExtras.map((extra) {
+                      final perExtras = _filtrarConceptos(extra['conceptos'], 'P');
+                      final dedExtras = _filtrarConceptos(extra['conceptos'], 'D');
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(left: 8, bottom: 8),
+                            child: Text("Concepto: ${extra['qna_label']}",
+                                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
+                          ),
+                          _buildCardGrupo("PERCEPCIONES EXTRA", perExtras, Colors.orange, (extra['per'] as num).toDouble()),
+                          _buildCardGrupo("DEDUCCIONES EXTRA", dedExtras, Colors.blueGrey, (extra['ded'] as num).toDouble()),
+                          const SizedBox(height: 16),
+                        ],
+                      );
+                    }),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
 
-  // (Se mantienen los widgets auxiliares _buildBannerInfo, _buildCardGrupo y _HeaderSeccion del código anterior)
   Widget _buildBannerInfo(NumberFormat fmt) {
-    double totalNetoTodo = _getNetoTotal();
+    //double totalNetoTodo = _getNetoTotal();
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -310,23 +297,40 @@ class DesgloseNominaScreen extends StatelessWidget {
           border: Border.all(color: Colors.indigo.shade100)),
       child: Column(
         children: [
-          Text(registro.nombre ?? "", textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          Text(registro.nombre ?? "", textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: kIsWeb ? 25 : 16)),
           const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              Text("QNA: ${registro.qna}", style: const TextStyle(color: Colors.indigo, fontWeight: FontWeight.bold)),
-              Text("AÑO: ${registro.anio}", style: const TextStyle(color: Colors.indigo, fontWeight: FontWeight.bold)),
+              Text("QNA: ${registro.qna}", style: const TextStyle(color: Colors.indigo, fontWeight: FontWeight.bold, fontSize: kIsWeb ? 23 : null)),
+              Text("AÑO: ${registro.anio}", style: const TextStyle(color: Colors.indigo, fontWeight: FontWeight.bold, fontSize: kIsWeb ? 23 : null)),
             ],
           ),
           const Divider(),
-          Text("LÍQUIDO TOTAL A RECIBIR", style: TextStyle(color: Colors.grey.shade700, fontSize: 12)),
-          Text(fmt.format(totalNetoTodo), style: const TextStyle(color: Colors.indigo, fontWeight: FontWeight.bold, fontSize: 22)),
+          Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _moneyCol("PERCEPCIÓN", registro.per, Colors.indigo, isBold: kIsWeb ? true : false),
+                  _moneyCol("DEDUCCIÓN", registro.ded, Colors.indigo, isBold: kIsWeb ? true : false),
+                  _moneyCol("LIQUIDO", registro.neto, Colors.indigo, isBold: true),
+                ],
+              ),
         ],
       ),
     );
   }
-
+Widget _moneyCol(String label, double val, Color color, {bool isBold = false}) {
+    final fmt = NumberFormat.currency(locale: 'es_MX', symbol: '\$');
+    return Column(
+      children: [
+        Text(label, style: const TextStyle(color: Colors.black54, fontSize: kIsWeb ? 20 : 10, fontWeight: FontWeight.bold)),
+        Text(
+          fmt.format(val),
+          style: TextStyle(color: color, fontSize: isBold ? 20 : 14, fontWeight: isBold ? FontWeight.bold : FontWeight.normal),
+        ),
+      ],
+    );
+  }
   Widget _buildCardGrupo(String titulo, List<MapEntry<String, double>> items, Color color, double montoTotal) {
     final fmt = NumberFormat.currency(locale: 'es_MX', symbol: '\$');
     if (items.isEmpty) return const SizedBox.shrink();
@@ -351,8 +355,8 @@ class DesgloseNominaScreen extends StatelessWidget {
           ...items.map((e) => ListTile(
                 dense: true,
                 visualDensity: VisualDensity.compact,
-                title: Text(e.key, style: const TextStyle(fontSize: 13)),
-                trailing: Text(fmt.format(e.value), style: TextStyle(color: color.withValues(alpha: 0.7), fontWeight: FontWeight.bold)),
+                title: Text(e.key, style: const TextStyle(fontSize: kIsWeb ? 18 : 13)),
+                trailing: Text(fmt.format(e.value), style: TextStyle(fontSize: kIsWeb ? 18 : 13, color: color.withValues(alpha: 0.7), fontWeight: FontWeight.bold)),
               )),
         ],
       ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; 
+import 'package:flutter/foundation.dart'; // Importante para kIsWeb
 import 'package:intl/intl.dart';
 import 'package:plantilla/screens/desglose_nomina_screen.dart';
 import 'package:plantilla/services/pdf_service.dart';
@@ -16,7 +17,7 @@ class DetalleRegistroScreen extends StatelessWidget {
   static const int bitNumEmp = 1;
   static const int bitRfc = 2;
   static const int bitCurp = 4;
-  static const int bitNombre = 8;
+  static const int bitNombre = 8; 
   static const int bitUr = 16;
   static const int bitTipoPers = 32;
   static const int bitProg = 64;
@@ -137,103 +138,113 @@ class DetalleRegistroScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text("Detalle (${registro.qna}/${registro.anio})"),
-        backgroundColor: Colors.indigo,
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.picture_as_pdf),
-            tooltip: "Compartir PDF",
-            onPressed: () => _compartirPDF(context),
-          ),
-          IconButton(icon: const Icon(Icons.share), onPressed: _compartirDatos),
-        ],
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Container(
-              decoration: BoxDecoration(
-                color: Theme.of(context).scaffoldBackgroundColor,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 5),
+    // Definimos el ancho máximo para la web
+    final double maxContentWidth = kIsWeb ? 850 : double.infinity;
+
+    return 
+    SelectionArea(
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text("Detalle (${registro.qna}/${registro.anio})"),
+          backgroundColor: Colors.indigo,
+          foregroundColor: Colors.white,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.picture_as_pdf),
+              tooltip: "Compartir PDF",
+              onPressed: () => _compartirPDF(context),
+            ),
+            IconButton(icon: const Icon(Icons.share), onPressed: _compartirDatos),
+          ],
+        ),
+        body: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: maxContentWidth),
+              child: Column(
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).scaffoldBackgroundColor,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
+                    ),
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    child: Column(
+                      children: [
+                        _buildHeader(),
+                        const SizedBox(height: 15),
+                        if (_tienePermiso(bitPer) || _tienePermiso(bitDed) || _tienePermiso(bitNeto)) 
+                          _buildFinancialCard(context),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(16.0, 0, 16.0, 20.0),
+                      child: Column(
+                        children: [
+                          const SizedBox(height: 10),
+                          if (registro.pensiones.isNotEmpty)
+                            _buildPensionSection(context),
+      
+                          _buildSection(
+                            context,
+                            "Datos Personales",
+                            Icons.badge_outlined,
+                            [
+                              _buildInfoTile("RFC", _dato(bitRfc, registro.rfc)),
+                              _buildInfoTile("CURP", _dato(bitCurp, registro.curp)),
+                              _buildInfoTile("# Empleado", _dato(bitNumEmp, registro.numEmp)),
+                            ],
+                          ),
+                          _buildSection(
+                            context,
+                            "Datos Laborales",
+                            Icons.work_outline,
+                            [
+                              _buildInfoTile("QNA / Año", "${registro.qna} / ${registro.anio}"),
+                              _buildInfoTile("Tipo Personal", _dato(bitTipoPers, registro.tipoPersonal)),
+                              _buildInfoTile("Programa", _dato(bitProg, registro.programa)),
+                              _buildInfoTile("FF", _dato(bitFf, registro.ff)),
+                              _buildInfoTile("Puesto", _dato(bitPuesto, registro.puesto)),
+                              _buildInfoTile("Código", _dato(bitCodigo, registro.codigo)),
+                              _buildInfoTile("UR", _dato(bitUr, registro.ur)),
+                              _buildInfoTile("Tipo Trab.", "${registro.tipoTrab2} (${registro.tipoTrab1})"),
+                              _buildInfoTile("RAMA", _dato(bitRama, registro.rama)),
+                              _buildInfoTile("CR", _dato(bitCr, registro.cr)),
+                              _buildInfoTile("Clues", "${registro.clues} - ${registro.desClues}"),
+                              _buildInfoTile("Clave Presup.", _dato(bitClavePres, registro.clavePresupuestal)),
+                              _buildInfoTile("Z. Economica.", _dato(bitZe, registro.ze)),
+                              _buildInfoTile("FIGF", _dato(bitFigf, registro.figf)),
+                              _buildInfoTile("FISSA", _dato(bitFissa, registro.fissa)),
+                              _buildInfoTile("FREING", _dato(bitFreing, registro.freing)),
+                              _buildInfoTile("# CHEQ", _dato(bitNumCheq, registro.numCheq)),
+                            ],
+                          ),
+                          _buildSection(
+                            context,
+                            "Datos Bancarios",
+                            Icons.account_balance_outlined,
+                            [
+                              _buildInfoTile("BANCO", _dato(bitBanco, _obtenerNombreBanco(registro.banco))),
+                              _buildInfoTile("# Cuenta", _dato(bitNumCta, registro.numCta)),
+                              _buildInfoTile("CLAVE", _dato(bitClabe, registro.clabe)),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
               ),
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Column(
-                children: [
-                  _buildHeader(),
-                  const SizedBox(height: 15),
-                  // Se aplica BigInt también aquí para la visibilidad de la tarjeta financiera
-                  if (_tienePermiso(bitPer) || _tienePermiso(bitDed) || _tienePermiso(bitNeto)) 
-                    _buildFinancialCard(context),
-                ],
-              ),
             ),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16.0, 0, 16.0, 20.0),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 10),
-                    if (registro.pensiones.isNotEmpty)
-                      _buildPensionSection(context),
-
-                    _buildSection(
-                      context,
-                      "Datos Personales",
-                      Icons.badge_outlined,
-                      [
-                        _buildRow("RFC", _dato(bitRfc, registro.rfc)),
-                        _buildRow("CURP", _dato(bitCurp, registro.curp)),
-                        _buildRow("# Empleado", _dato(bitNumEmp, registro.numEmp)),
-                      ],
-                    ),
-                    _buildSection(
-                      context,
-                      "Datos Laborales",
-                      Icons.work_outline,
-                      [
-                        _buildInfoTile("QNA / Año", "${registro.qna} / ${registro.anio}"),
-                        _buildInfoTile("Tipo Personal", _dato(bitTipoPers, registro.tipoPersonal)),
-                        _buildInfoTile("Programa", _dato(bitProg, registro.programa)),
-                        _buildInfoTile("FF", _dato(bitFf, registro.ff)),
-                        _buildInfoTile("Puesto", _dato(bitPuesto, registro.puesto)),
-                        _buildInfoTile("Código", _dato(bitCodigo, registro.codigo)),
-                        _buildInfoTile("UR", _dato(bitUr, registro.ur)),
-                        _buildInfoTile("Tipo Trab.", "${registro.tipoTrab2} (${registro.tipoTrab1})"),
-                        _buildInfoTile("RAMA", _dato(bitRama, registro.rama)),
-                        _buildInfoTile("CR", _dato(bitCr, registro.cr)),
-                        _buildInfoTile("Clues", "${registro.clues} - ${registro.desClues}"),
-                        _buildInfoTile("Clave Presup.", _dato(bitClavePres, registro.clavePresupuestal)),
-                        _buildInfoTile("Z. Economica.", _dato(bitZe, registro.ze)),
-                        _buildInfoTile("FIGF", _dato(bitFigf, registro.figf)),
-                        _buildInfoTile("FISSA", _dato(bitFissa, registro.fissa)),
-                        _buildInfoTile("FREING", _dato(bitFreing, registro.freing)),
-                        _buildInfoTile("# CHEQ", _dato(bitNumCheq, registro.numCheq)),
-                      ],
-                    ),
-                    _buildSection(
-                      context,
-                      "Datos Bancarios",
-                      Icons.account_balance_outlined,
-                      [
-                        _buildInfoTile("BANCO", _dato(bitBanco, _obtenerNombreBanco(registro.banco))),
-                        _buildInfoTile("# Cuenta", _dato(bitNumCta, registro.numCta)),
-                        _buildInfoTile("CLAVE", _dato(bitClabe, registro.clabe)),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -259,7 +270,7 @@ class DetalleRegistroScreen extends StatelessWidget {
                 children: [
                   Icon(Icons.family_restroom, color: Colors.orange, size: 20),
                   SizedBox(width: 10),
-                  Text("Pensiones Alimenticias", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.orange)),
+                  Text("Pensiones Alimenticias", style: TextStyle(fontWeight: FontWeight.bold, fontSize: kIsWeb ? 18 : 16, color: Colors.orange)),
                 ],
               ),
               IconButton(
@@ -280,12 +291,12 @@ class DetalleRegistroScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(p.nombre, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                Text(p.nombre, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: kIsWeb ? 18 : 13)),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text("Importe: ${fmt.format(p.importe)}", style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
-                    Text("UR: ${p.ur}/${p.qnaReal}", style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                    Text("UR: ${p.ur}/${p.qnaReal}", style: const TextStyle(color: Colors.grey, fontSize: kIsWeb ? 18 : 12)),
                   ],
                 ),
               ],
@@ -302,8 +313,8 @@ class DetalleRegistroScreen extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(flex: 1, child: Text(label, style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.grey))),
-          Expanded(flex: 3, child: Text(value, style: const TextStyle(fontWeight: FontWeight.bold))),
+          Expanded(flex: 1, child: Text(label, style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.grey, fontSize: kIsWeb ? 18 : 13))),
+          Expanded(flex: 3, child: Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: kIsWeb ? 18 : 13))),
         ],
       ),
     );
@@ -328,7 +339,7 @@ class DetalleRegistroScreen extends StatelessWidget {
           Text(
             _dato(bitNombre, registro.nombre),
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            style: const TextStyle(fontSize: kIsWeb ? 25 : 18, fontWeight: FontWeight.bold),
           ),
         ],
       ),
@@ -361,8 +372,8 @@ class DetalleRegistroScreen extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _moneyCol("PERCEPCIÓN", _tienePermiso(bitPer), registro.per, Colors.white),
-                  _moneyCol("DEDUCCIÓN", _tienePermiso(bitDed), registro.ded, Colors.white),
+                  _moneyCol("PERCEPCIÓN", _tienePermiso(bitPer), registro.per, Colors.white, isBold: kIsWeb ? true : false),
+                  _moneyCol("DEDUCCIÓN", _tienePermiso(bitDed), registro.ded, Colors.white, isBold: kIsWeb ? true : false),
                   _moneyCol("NETO", _tienePermiso(bitNeto), registro.neto, Colors.greenAccent, isBold: true),
                 ],
               ),
@@ -396,10 +407,10 @@ class DetalleRegistroScreen extends StatelessWidget {
     final fmt = NumberFormat.currency(locale: 'es_MX', symbol: '\$');
     return Column(
       children: [
-        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold)),
+        Text(label, style: const TextStyle(color: Colors.white70, fontSize: kIsWeb ? 20 : 10, fontWeight: FontWeight.bold)),
         Text(
           tienePermiso ? fmt.format(val) : "****",
-          style: TextStyle(color: color, fontSize: isBold ? 18 : 14, fontWeight: isBold ? FontWeight.bold : FontWeight.normal),
+          style: TextStyle(color: color, fontSize: isBold ? 20 : 14, fontWeight: isBold ? FontWeight.bold : FontWeight.normal),
         ),
       ],
     );
@@ -423,7 +434,7 @@ class DetalleRegistroScreen extends StatelessWidget {
                 children: [
                   Icon(icon, color: Colors.indigo, size: 20),
                   const SizedBox(width: 10),
-                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.indigo)),
+                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: kIsWeb ? 25 : 16, color: Colors.indigo)),
                 ],
               ),
               IconButton(
@@ -439,18 +450,18 @@ class DetalleRegistroScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(flex: 2, child: Text(label, style: TextStyle(color: Colors.grey.shade500, fontSize: 13))),
-          Expanded(flex: 3, child: Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
-        ],
-      ),
-    );
-  }
+  // Widget _buildRow(String label, String value) {
+  //   return Padding(
+  //     padding: const EdgeInsets.only(bottom: 12),
+  //     child: Row(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //       children: [
+  //         Expanded(flex: 2, child: Text(label, style: TextStyle(color: Colors.grey.shade500, fontSize: kIsWeb ? 18 : 13))),
+  //         Expanded(flex: 3, child: Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: kIsWeb ? 18 : 13))),
+  //       ],
+  //     ),
+  //   );
+  // }
 
   String _obtenerNombreBanco(String? codigo) {
     final bancos = {

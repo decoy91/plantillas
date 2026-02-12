@@ -117,24 +117,31 @@ class ApiService {
   }
 
   Future<bool> editarUsuario(Map<String, dynamic> datos) async {
-    final url = Uri.parse("$baseUrl/usuarios/editar");
+    // 1. Extraemos el ID para ponerlo en la URL
+    final int userId = datos['id']; 
+    // 2. La URL debe llevar el ID al final: /usuarios/5
+    final url = Uri.parse("$baseUrl/usuarios/$userId"); 
+
     try {
       final response = await http.put(
         url,
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
-          "id": datos['id'],
           "user": datos['user'],
-          "pass_word": datos['pass_word'], // Usamos la llave correcta enviada desde AdminScreen
+          "pass_word": datos['pass_word'], 
           "nivel": datos['nivel'],
+          "activo": datos['activo'] ?? 1, // Asegúrate de enviar 'activo'
           "direccion_mac": datos['direccion_mac'],
           "tablas_autorizadas": datos['tablas_autorizadas'],
-          // --- NUEVOS CAMPOS ENVIADOS ---
           "hora_inicio": datos['hora_inicio'],
           "hora_fin": datos['hora_fin'],
           "validar_horario": datos['validar_horario'],
         }),
       );
+      
+      // Imprime para debug si falla
+      if (response.statusCode != 200) {
+      }
       
       return response.statusCode == 200;
     } catch (e) {

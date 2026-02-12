@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart'; // Importante para kIsWeb
 import 'package:share_plus/share_plus.dart';
 import '../services/api_service.dart';
 
@@ -257,130 +258,181 @@ _Por seguridad, cambie su contraseña al ingresar._
     bool editValidarHorario = (usuario['validar_horario'].toString() == "1");
 
     showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Row(
-            children: [Icon(Icons.edit, color: Colors.indigo), SizedBox(width: 10), Text("Editar Usuario")],
-          ),
-          content: SizedBox(
-            width: MediaQuery.of(context).size.width * 0.9,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Divider(),
-                  TextField(controller: editUserCtrl, decoration: const InputDecoration(labelText: "Usuario", prefixIcon: Icon(Icons.person))),
-                  const SizedBox(height: 15),
-                  TextField(controller: editPassCtrl, obscureText: true, decoration: const InputDecoration(labelText: "Password (Vacío para no cambiar)", prefixIcon: Icon(Icons.lock))),
-                  const SizedBox(height: 15),
-                  TextField(controller: editMacCtrl, decoration: const InputDecoration(labelText: "Dirección MAC", prefixIcon: Icon(Icons.settings_input_antenna))),
-                  const SizedBox(height: 15),
-                  TextField(
-                    controller: editTablasCtrl,
-                    readOnly: true,
-                    decoration: InputDecoration(
-                      labelText: "Bitmask de Permisos",
-                      prefixIcon: const Icon(Icons.security),
-                      suffixIcon: IconButton(
-                        icon: const Icon(Icons.settings),
-                        onPressed: () => _mostrarSelectorPermisos(editTablasCtrl),
+  context: context,
+  builder: (context) => StatefulBuilder(
+    builder: (context, setDialogState) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: const Row(
+        children: [
+          Icon(Icons.edit, color: Colors.indigo),
+          SizedBox(width: 10),
+          Text("Editar Usuario")
+        ],
+      ),
+      content: ConstrainedBox(
+        // --- AQUÍ ESTÁ EL TRUCO RESPONSIVO ---
+        constraints: BoxConstraints(
+          // En móvil usará el 90% del ancho, pero nunca pasará de 500px en Web
+          maxWidth: MediaQuery.of(context).size.width * 0.9 > 500 
+                    ? 500 
+                    : MediaQuery.of(context).size.width * 0.9,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Divider(),
+              TextField(
+                controller: editUserCtrl,
+                decoration: const InputDecoration(
+                  labelText: "Usuario", 
+                  prefixIcon: Icon(Icons.person)
+                )
+              ),
+              const SizedBox(height: 15),
+              TextField(
+                controller: editPassCtrl, 
+                obscureText: true, 
+                decoration: const InputDecoration(
+                  labelText: "Password (Vacío para no cambiar)", 
+                  prefixIcon: Icon(Icons.lock)
+                )
+              ),
+              const SizedBox(height: 15),
+              TextField(
+                controller: editMacCtrl, 
+                decoration: const InputDecoration(
+                  labelText: "Dirección MAC", 
+                  prefixIcon: Icon(Icons.settings_input_antenna)
+                )
+              ),
+              const SizedBox(height: 15),
+              TextField(
+                controller: editTablasCtrl,
+                readOnly: true,
+                decoration: InputDecoration(
+                  labelText: "Bitmask de Permisos",
+                  prefixIcon: const Icon(Icons.security),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.settings),
+                    onPressed: () => _mostrarSelectorPermisos(editTablasCtrl),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 15),
+              SwitchListTile(
+                title: const Text("Validar Horario", style: TextStyle(fontSize: 14)),
+                value: editValidarHorario,
+                onChanged: (val) {
+                  setDialogState(() => editValidarHorario = val);
+                },
+              ),
+              Opacity(
+                opacity: editValidarHorario ? 1.0 : 0.5,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: editHoraInicioCtrl,
+                        readOnly: true,
+                        enabled: editValidarHorario,
+                        decoration: const InputDecoration(
+                          labelText: "Inicio", 
+                          prefixIcon: Icon(Icons.access_time)
+                        ),
+                        onTap: () async {
+                          if (editValidarHorario) {
+                            await _seleccionarHora(context, editHoraInicioCtrl);
+                            setDialogState(() {});
+                          }
+                        },
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 15),
-                  SwitchListTile(
-                    title: const Text("Validar Horario", style: TextStyle(fontSize: 14)),
-                    value: editValidarHorario,
-                    onChanged: (val) {
-                      setDialogState(() => editValidarHorario = val);
-                    },
-                  ),
-                  Opacity(
-                    opacity: editValidarHorario ? 1.0 : 0.5,
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: editHoraInicioCtrl,
-                            readOnly: true,
-                            enabled: editValidarHorario,
-                            decoration: const InputDecoration(labelText: "Inicio", prefixIcon: Icon(Icons.access_time)),
-                            onTap: () async {
-                              await _seleccionarHora(context, editHoraInicioCtrl);
-                              setDialogState(() {});
-                            },
-                          ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextField(
+                        controller: editHoraFinCtrl,
+                        readOnly: true,
+                        enabled: editValidarHorario,
+                        decoration: const InputDecoration(
+                          labelText: "Fin", 
+                          prefixIcon: Icon(Icons.access_time_filled)
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: TextField(
-                            controller: editHoraFinCtrl,
-                            readOnly: true,
-                            enabled: editValidarHorario,
-                            decoration: const InputDecoration(labelText: "Fin", prefixIcon: Icon(Icons.access_time_filled)),
-                            onTap: () async {
-                              await _seleccionarHora(context, editHoraFinCtrl);
-                              setDialogState(() {});
-                            },
-                          ),
-                        ),
-                      ],
+                        onTap: () async {
+                          if (editValidarHorario) {
+                            await _seleccionarHora(context, editHoraFinCtrl);
+                            setDialogState(() {});
+                          }
+                        },
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 15),
-                  DropdownButtonFormField<int>(
-                    initialValue: editNivel,
-                    decoration: const InputDecoration(labelText: "Nivel", prefixIcon: Icon(Icons.security)),
-                    items: const [
-                      DropdownMenuItem(value: 1, child: Text("Administrador")),
-                      DropdownMenuItem(value: 2, child: Text("Consulta")),
-                    ],
-                    onChanged: (v) => setDialogState(() => editNivel = v!),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
+              const SizedBox(height: 15),
+              DropdownButtonFormField<int>(
+                initialValue: editNivel, // Cambiado de initialValue a value para StatefulBuilder
+                decoration: const InputDecoration(
+                  labelText: "Nivel", 
+                  prefixIcon: Icon(Icons.security)
+                ),
+                items: const [
+                  DropdownMenuItem(value: 1, child: Text("Administrador")),
+                  DropdownMenuItem(value: 2, child: Text("Consulta")),
+                ],
+                onChanged: (v) => setDialogState(() => editNivel = v!),
+              ),
+            ],
           ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCELAR")),
-            FilledButton.icon(
-              icon: const Icon(Icons.save),
-              label: const Text("ACTUALIZAR"),
-              style: FilledButton.styleFrom(backgroundColor: Colors.indigo),
-              onPressed: () async {
-                final navigator = Navigator.of(context);
-                final messenger = ScaffoldMessenger.of(context);
-                
-                final data = {
-                  "id": usuario['id'],
-                  "user": editUserCtrl.text,
-                  "pass_word": editPassCtrl.text,
-                  "nivel": editNivel,
-                  "direccion_mac": editMacCtrl.text,
-                  "tablas_autorizadas": editTablasCtrl.text,
-                  "hora_inicio": editHoraInicioCtrl.text,
-                  "hora_fin": editHoraFinCtrl.text,
-                  "validar_horario": editValidarHorario ? 1 : 0,
-                };
-
-                final success = await ApiService().editarUsuario(data);
-                
-                if (!mounted) return;
-                if (success) {
-                  navigator.pop();
-                  _cargarUsuarios();
-                  messenger.showSnackBar(const SnackBar(content: Text("Actualizado con éxito")));
-                } else {
-                  messenger.showSnackBar(const SnackBar(content: Text("Error al actualizar"), backgroundColor: Colors.red));
-                }
-              },
-            ),
-          ],
         ),
       ),
-    );
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context), 
+          child: const Text("CANCELAR")
+        ),
+        FilledButton.icon(
+          icon: const Icon(Icons.save),
+          label: const Text("ACTUALIZAR"),
+          style: FilledButton.styleFrom(backgroundColor: Colors.indigo),
+          onPressed: () async {
+            final navigator = Navigator.of(context);
+            final messenger = ScaffoldMessenger.of(context);
+            
+            final data = {
+              "id": usuario['id'],
+              "user": editUserCtrl.text,
+              "pass_word": editPassCtrl.text,
+              "nivel": editNivel,
+              "direccion_mac": editMacCtrl.text,
+              "tablas_autorizadas": editTablasCtrl.text,
+              "hora_inicio": editHoraInicioCtrl.text,
+              "hora_fin": editHoraFinCtrl.text,
+              "validar_horario": editValidarHorario ? 1 : 0,
+            };
+
+            final success = await ApiService().editarUsuario(data);
+            
+            if (!mounted) return;
+            if (success) {
+              navigator.pop();
+              _cargarUsuarios();
+              messenger.showSnackBar(const SnackBar(
+                content: Text("Actualizado con éxito"),
+                backgroundColor: Colors.green,
+              ));
+            } else {
+              messenger.showSnackBar(const SnackBar(
+                content: Text("Error al actualizar"), 
+                backgroundColor: Colors.red
+              ));
+            }
+          },
+        ),
+      ],
+    ),
+  ),
+);
   }
 
   void _toggleUsuario(dynamic id, dynamic estadoActual) async {
@@ -411,159 +463,169 @@ _Por seguridad, cambie su contraseña al ingresar._
 
   @override
   Widget build(BuildContext context) {
+    final double maxContentWidth = kIsWeb ? 850 : double.infinity;
+
     return Scaffold(
       resizeToAvoidBottomInset: true,
-      appBar: AppBar(title: const Text("Gestión de Usuarios"), backgroundColor: Colors.indigo, foregroundColor: Colors.white),
-      body: Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                children: [
-                  Card(
-                    margin: const EdgeInsets.all(8.0),
-                    elevation: 3,
-                    // --- CORRECCIÓN 1: Quitar líneas negras del ExpansionTile ---
-                    child: Theme(
-                      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-                      child: ExpansionTile(
-                        key: _expansionTileKey,
-                        leading: const Icon(Icons.person_add, color: Colors.indigo),
-                        title: const Text("Registrar Nuevo Usuario", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.indigo)),
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            // --- CORRECCIÓN 2: Limitar altura y asegurar scroll si el teclado sube ---
-                            child: Form(
-                              key: _formKey,
-                              child: Column(
-                                children: [
-                                  TextFormField(controller: _userController, decoration: const InputDecoration(labelText: "Usuario", prefixIcon: Icon(Icons.account_circle))),
-                                  const SizedBox(height: 10),
-                                  TextFormField(controller: _passController, decoration: const InputDecoration(labelText: "Password", prefixIcon: Icon(Icons.lock)), obscureText: true),
-                                  const SizedBox(height: 10),
-                                  TextFormField(controller: _macController, decoration: const InputDecoration(labelText: "Dirección MAC", prefixIcon: Icon(Icons.settings_input_antenna))),
-                                  const SizedBox(height: 10),
-                                  TextFormField(
-                                    controller: _tablasController,
-                                    readOnly: true,
-                                    decoration: InputDecoration(
-                                      labelText: "Configurar Permisos (Bitmask)",
-                                      prefixIcon: const Icon(Icons.security),
-                                      suffixIcon: IconButton(
-                                        icon: const Icon(Icons.settings),
-                                        onPressed: () => _mostrarSelectorPermisos(_tablasController),
+      appBar: AppBar(
+        title: const Text("Gestión de Usuarios"), 
+        backgroundColor: Colors.indigo, 
+        foregroundColor: Colors.white,
+        centerTitle: kIsWeb,
+      ),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: maxContentWidth),
+          child: Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      Card(
+                        margin: const EdgeInsets.all(8.0),
+                        elevation: 3,
+                        child: Theme(
+                          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                          child: ExpansionTile(
+                            key: _expansionTileKey,
+                            leading: const Icon(Icons.person_add, color: Colors.indigo),
+                            title: const Text("Registrar Nuevo Usuario", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.indigo)),
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: Form(
+                                  key: _formKey,
+                                  child: Column(
+                                    children: [
+                                      TextFormField(controller: _userController, decoration: const InputDecoration(labelText: "Usuario", prefixIcon: Icon(Icons.account_circle))),
+                                      const SizedBox(height: 10),
+                                      TextFormField(controller: _passController, decoration: const InputDecoration(labelText: "Password", prefixIcon: Icon(Icons.lock)), obscureText: true),
+                                      const SizedBox(height: 10),
+                                      TextFormField(controller: _macController, decoration: const InputDecoration(labelText: "Dirección MAC", prefixIcon: Icon(Icons.settings_input_antenna))),
+                                      const SizedBox(height: 10),
+                                      TextFormField(
+                                        controller: _tablasController,
+                                        readOnly: true,
+                                        decoration: InputDecoration(
+                                          labelText: "Configurar Permisos (Bitmask)",
+                                          prefixIcon: const Icon(Icons.security),
+                                          suffixIcon: IconButton(
+                                            icon: const Icon(Icons.settings),
+                                            onPressed: () => _mostrarSelectorPermisos(_tablasController),
+                                          ),
+                                        ),
                                       ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  SwitchListTile(
-                                    contentPadding: EdgeInsets.zero,
-                                    title: const Text("¿Restringir por horario?", style: TextStyle(fontSize: 14)),
-                                    activeThumbColor: Colors.indigo,
-                                    value: _validarHorario,
-                                    onChanged: (val) => setState(() => _validarHorario = val),
-                                  ),
-                                  if (_validarHorario)
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: TextFormField(
-                                            controller: _horaInicioController,
-                                            readOnly: true,
-                                            decoration: const InputDecoration(labelText: "Hora Inicio", prefixIcon: Icon(Icons.access_time), contentPadding: EdgeInsets.symmetric(vertical: 8)),
-                                            onTap: () => _seleccionarHora(context, _horaInicioController),
-                                          ),
+                                      const SizedBox(height: 10),
+                                      SwitchListTile(
+                                        contentPadding: EdgeInsets.zero,
+                                        title: const Text("¿Restringir por horario?", style: TextStyle(fontSize: 14)),
+                                        activeThumbColor: Colors.indigo,
+                                        value: _validarHorario,
+                                        onChanged: (val) => setState(() => _validarHorario = val),
+                                      ),
+                                      if (_validarHorario)
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: TextFormField(
+                                                controller: _horaInicioController,
+                                                readOnly: true,
+                                                decoration: const InputDecoration(labelText: "Hora Inicio", prefixIcon: Icon(Icons.access_time), contentPadding: EdgeInsets.symmetric(vertical: 8)),
+                                                onTap: () => _seleccionarHora(context, _horaInicioController),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 10),
+                                            Expanded(
+                                              child: TextFormField(
+                                                controller: _horaFinController,
+                                                readOnly: true,
+                                                decoration: const InputDecoration(labelText: "Hora Fin", prefixIcon: Icon(Icons.access_time_filled), contentPadding: EdgeInsets.symmetric(vertical: 8)),
+                                                onTap: () => _seleccionarHora(context, _horaFinController),
+                                              ),
+                                            ),
+                                          ],
                                         ),
-                                        const SizedBox(width: 10),
-                                        Expanded(
-                                          child: TextFormField(
-                                            controller: _horaFinController,
-                                            readOnly: true,
-                                            decoration: const InputDecoration(labelText: "Hora Fin", prefixIcon: Icon(Icons.access_time_filled), contentPadding: EdgeInsets.symmetric(vertical: 8)),
-                                            onTap: () => _seleccionarHora(context, _horaFinController),
-                                          ),
+                                      const SizedBox(height: 10),
+                                      DropdownButtonFormField<int>(
+                                        initialValue: _nivel,
+                                        items: const [DropdownMenuItem(value: 1, child: Text("Admin")), DropdownMenuItem(value: 2, child: Text("Consulta"))],
+                                        onChanged: (v) => setState(() => _nivel = v!),
+                                        decoration: const InputDecoration(labelText: "Nivel", prefixIcon: Icon(Icons.security)),
+                                      ),
+                                      const SizedBox(height: 20),
+                                      SizedBox(
+                                        width: double.infinity,
+                                        child: ElevatedButton.icon(
+                                          onPressed: _crearUsuario,
+                                          icon: const Icon(Icons.save),
+                                          label: const Text("GUARDAR USUARIO"),
+                                          style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 12)),
                                         ),
-                                      ],
-                                    ),
-                                  const SizedBox(height: 10),
-                                  DropdownButtonFormField<int>(
-                                    initialValue: _nivel,
-                                    items: const [DropdownMenuItem(value: 1, child: Text("Admin")), DropdownMenuItem(value: 2, child: Text("Consulta"))],
-                                    onChanged: (v) => setState(() => _nivel = v!),
-                                    decoration: const InputDecoration(labelText: "Nivel", prefixIcon: Icon(Icons.security)),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(height: 20),
-                                  SizedBox(
-                                    width: double.infinity,
-                                    child: ElevatedButton.icon(
-                                      onPressed: _crearUsuario,
-                                      icon: const Icon(Icons.save),
-                                      label: const Text("GUARDAR USUARIO"),
-                                      style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 12)),
-                                    ),
-                                  ),
-                                ],
+                                ),
                               ),
-                            ),
+                            ],
                           ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-                    child: TextField(
-                      controller: _searchUserController,
-                      decoration: InputDecoration(
-                        hintText: "Buscar usuario...",
-                        prefixIcon: const Icon(Icons.search),
-                        suffixIcon: _searchUserController.text.isNotEmpty ? IconButton(icon: const Icon(Icons.clear), onPressed: () => _searchUserController.clear()) : null,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
-                        filled: true,
-                        fillColor: Colors.grey.shade100,
-                      ),
-                    ),
-                  ),
-                  _isLoadingList
-                      ? const Padding(
-                          padding: EdgeInsets.all(20.0),
-                          child: CircularProgressIndicator(),
-                        )
-                      : ListView.separated(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: _usuariosFiltrados.length,
-                          separatorBuilder: (context, index) => const Divider(height: 1),
-                          itemBuilder: (context, i) {
-                            final u = _usuariosFiltrados[i];
-                            bool isTimeRestricted = (u['validar_horario'].toString() == "1");
-                            return ListTile(
-                              onTap: () => _abrirEditorUsuario(u),
-                              leading: CircleAvatar(
-                                backgroundColor: u['nivel'].toString() == "1" ? Colors.amber.shade800 : Colors.indigo.shade300,
-                                child: Icon(u['nivel'].toString() == "1" ? Icons.star : Icons.person, color: Colors.white, size: 20),
-                              ),
-                              title: Text(u['user'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                              subtitle: Text(isTimeRestricted 
-                                ? "Horario: ${u['hora_inicio']} - ${u['hora_fin']}"
-                                : "Acceso libre 24/7"),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  IconButton(icon: const Icon(Icons.share, color: Colors.green), onPressed: () => _compartirCredenciales(u)),
-                                  Switch(value: u['activo'].toString() == "1", onChanged: (val) => _toggleUsuario(u['id'], u['activo'])),
-                                  IconButton(icon: const Icon(Icons.delete_outline, color: Colors.redAccent), onPressed: () => _confirmarEliminacion(u['id'], u['user'])),
-                                ],
-                              ),
-                            );
-                          },
                         ),
-                ],
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                        child: TextField(
+                          controller: _searchUserController,
+                          decoration: InputDecoration(
+                            hintText: "Buscar usuario...",
+                            prefixIcon: const Icon(Icons.search),
+                            suffixIcon: _searchUserController.text.isNotEmpty ? IconButton(icon: const Icon(Icons.clear), onPressed: () => _searchUserController.clear()) : null,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                            filled: true,
+                            fillColor: Colors.grey.shade100,
+                          ),
+                        ),
+                      ),
+                      _isLoadingList
+                          ? const Padding(
+                              padding: EdgeInsets.all(20.0),
+                              child: CircularProgressIndicator(),
+                            )
+                          : ListView.separated(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: _usuariosFiltrados.length,
+                              separatorBuilder: (context, index) => const Divider(height: 1),
+                              itemBuilder: (context, i) {
+                                final u = _usuariosFiltrados[i];
+                                bool isTimeRestricted = (u['validar_horario'].toString() == "1");
+                                return ListTile(
+                                  onTap: () => _abrirEditorUsuario(u),
+                                  leading: CircleAvatar(
+                                    backgroundColor: u['nivel'].toString() == "1" ? Colors.amber.shade800 : Colors.indigo.shade300,
+                                    child: Icon(u['nivel'].toString() == "1" ? Icons.star : Icons.person, color: Colors.white, size: 20),
+                                  ),
+                                  title: Text(u['user'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                                  subtitle: Text(isTimeRestricted 
+                                    ? "Horario: ${u['hora_inicio']} - ${u['hora_fin']}"
+                                    : "Acceso libre 24/7"),
+                                  trailing: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(icon: const Icon(Icons.share, color: Colors.green), onPressed: () => _compartirCredenciales(u)),
+                                      Switch(value: u['activo'].toString() == "1", onChanged: (val) => _toggleUsuario(u['id'], u['activo'])),
+                                      IconButton(icon: const Icon(Icons.delete_outline, color: Colors.redAccent), onPressed: () => _confirmarEliminacion(u['id'], u['user'])),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                    ],
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

@@ -1,8 +1,8 @@
-//lib/screens/busqueda_screen.dart
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart'; // Importante para kIsWeb
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:plantilla/screens/admin_screen.dart';
 import '../services/api_service.dart';
@@ -33,7 +33,6 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
   List<RegistroPlantilla> _resultados = [];
   bool _isSearching = false;
   bool _isGrouped = true;
-  // Se mantiene por compatibilidad de código, aunque ya no se usará Timer para disparar búsquedas
   Timer? _debounce;
 
   final Map<String, List<RegistroPlantilla>> _cacheBusquedas = {};
@@ -101,10 +100,13 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
         title: const Row(
           children: [Icon(Icons.vpn_key, color: Colors.indigo), SizedBox(width: 10), Text("Cambiar Contraseña")],
         ),
-        content: TextField(
-          controller: newPassCtrl,
-          obscureText: true,
-          decoration: const InputDecoration(labelText: "Nueva Contraseña", border: OutlineInputBorder()),
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 400),
+          child: TextField(
+            controller: newPassCtrl,
+            obscureText: true,
+            decoration: const InputDecoration(labelText: "Nueva Contraseña", border: OutlineInputBorder()),
+          ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCELAR")),
@@ -161,7 +163,6 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
         ) ?? false;
   }
 
-  // --- FUNCIÓN MODIFICADA PARA BUSCAR SOLO POR ENTER O ACCIÓN EXPLÍCITA ---
   void _ejecutarBusqueda(String query) async {
     query = query.trim().toUpperCase();
     if (query.length < 3) {
@@ -196,21 +197,26 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
   Widget build(BuildContext context) {
     final agrupados = _agruparYOrdenar(_resultados);
     final listaAnios = agrupados.keys.toList()..sort((a, b) => b.compareTo(a));
+    // Definimos el ancho máximo para la web
+    final double maxContentWidth = kIsWeb ? 850 : double.infinity;
 
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
         if (await _confirmarSalidaApp() && mounted) {
-          if (Platform.isAndroid) {
+          if (kIsWeb) {
+             // En web no cerramos la pestaña por comando, se sugiere logout
+          } else if (Platform.isAndroid) {
             SystemNavigator.pop();
           } else {exit(0);}
         }
       },
       child: Scaffold(
-        backgroundColor: Colors.grey.shade50,
+        backgroundColor: Colors.grey.shade100,
         appBar: AppBar(
-          title: const Text("Buscador"),
+          title: const Text("Buscador Plantilla", style: TextStyle(fontSize: kIsWeb ? 35 : null ),),
+          centerTitle: kIsWeb,
           backgroundColor: Colors.indigo,
           foregroundColor: Colors.white,
           actions: [
@@ -240,41 +246,60 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
           ],
         ),
         body: SafeArea(
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: TextField(
-                  controller: _searchController,
-                  // Se eliminó _onSearchChanged para evitar búsquedas automáticas
-                  onSubmitted: (value) => _ejecutarBusqueda(value),
-                  textInputAction: TextInputAction.search, // Cambia el Enter por una Lupa
-                  textCapitalization: TextCapitalization.characters,
-                  decoration: InputDecoration(
-                    hintText: "BUSCAR POR NOMBRE O RFC...",
-                    prefixIcon: const Icon(Icons.search),
-                    filled: true,
-                    fillColor: Colors.white,
-                    suffixIcon: _searchController.text.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear), 
-                            onPressed: () { 
-                              _searchController.clear(); 
-                              setState(() => _resultados = []); 
-                            }
-                          )
-                        : null,
-                    border: const OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(15))),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: maxContentWidth),
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: TextField(
+                      controller: _searchController,
+                      onSubmitted: (value) => _ejecutarBusqueda(value),
+                      textInputAction: TextInputAction.search,
+                      textCapitalization: TextCapitalization.characters,
+                      decoration: InputDecoration(
+                        hintText: "BUSCAR POR NOMBRE O RFC...",
+                        prefixIcon: const Icon(Icons.search),
+                        filled: true,
+                        fillColor: Colors.white,
+                        suffixIcon: _searchController.text.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear), 
+                                onPressed: () { 
+                                  _searchController.clear(); 
+                                  setState(() => _resultados = []); 
+                                }
+                              )
+                            : null,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(15),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
+                  if (_isSearching) const LinearProgressIndicator(),
+                  Expanded(
+                    child: _resultados.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                //Icon(Icons.search_off, size: 80, color: Colors.grey.shade300),
+                                const SizedBox(height: 10),
+                                Text(
+                                  _isSearching ? "Stalkeando 😱..." : "¿A quién vamos a buscar? 😈", 
+                                  style: TextStyle(fontSize: kIsWeb ? 35 : 20, color: Colors.grey.shade500)
+                                ),
+                              ],
+                            )
+                          )
+                        : _isGrouped ? _buildGroupedList(agrupados, listaAnios) : _buildFlatList(),
+                  ),
+                ],
               ),
-              if (_isSearching) const LinearProgressIndicator(),
-              Expanded(
-                child: _resultados.isEmpty
-                    ? Center(child: Text(_isSearching ? "Stalkeando 😱..." : "¿A quién vamos a buscar? 😈", style: const TextStyle(fontSize: 20)))
-                    : _isGrouped ? _buildGroupedList(agrupados, listaAnios) : _buildFlatList(),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -289,14 +314,16 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
         final anio = listaAnios[index];
         final registros = agrupados[anio]!;
         return Card(
-          elevation: 3,
-          margin: const EdgeInsets.symmetric(vertical: 6),
+          elevation: 2,
+          margin: const EdgeInsets.symmetric(vertical: 8),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
           child: ExpansionTile(
+            // initiallyExpanded: index == 0, // Expandir el año más reciente por defecto
             shape: const Border(),
             collapsedShape: const Border(),
             leading: const Icon(Icons.calendar_today, color: Colors.indigo),
-            title: Text("AÑO $anio", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.indigo)),
+            title: Text("AÑO $anio", style: const TextStyle(fontSize: kIsWeb ? 20 : null, fontWeight: FontWeight.bold, color: Colors.indigo)),
+            subtitle: Text("${registros.length} registros encontrados", style: const TextStyle(fontSize: kIsWeb ? 15 : 11)),
             children: registros.map((item) => _buildResultTile(item)).toList(),
           ),
         );
@@ -309,9 +336,9 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
       padding: const EdgeInsets.fromLTRB(10, 0, 10, 20),
       itemCount: _resultados.length,
       itemBuilder: (context, index) => Card(
-        elevation: 2,
+        elevation: 1,
         margin: const EdgeInsets.symmetric(vertical: 4),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: _buildResultTile(_resultados[index]),
       ),
     );
@@ -320,34 +347,46 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
   Widget _buildResultTile(RegistroPlantilla item) {
     final infoGenero = _obtenerInfoGenero(item.curp);
     return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       leading: CircleAvatar(
-        radius: 15,
-        backgroundColor: infoGenero['color'],
-        child: Icon(infoGenero['icono'], color: Colors.white, size: 16),
+        radius: 18,
+        backgroundColor: infoGenero['color'].withOpacity(0.1),
+        child: Icon(infoGenero['icono'], color: infoGenero['color'], size: kIsWeb ? 33 : 20),
       ),
       title: Text(
         item.nombre ?? "",
-        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+        style: const TextStyle(fontSize: kIsWeb ? 15 : 13, fontWeight: FontWeight.bold),
       ),
-      subtitle: Text.rich(
-        TextSpan(
-          style: const TextStyle(fontSize: 11, color: Colors.grey),
-          children: [
-            const TextSpan(text: "QNA: "),
-            TextSpan(
-              text: "${item.qna}",
-              style: const TextStyle(color: Colors.indigo, fontWeight: FontWeight.bold),
-            ),
-            const TextSpan(text: " | AÑO: "),
-            TextSpan(
-              text: "${item.anio}",
-              style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
-            ),
-            TextSpan(text: " | RFC: ${item.rfc}"),
-          ],
+      subtitle: Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: Text.rich(
+          TextSpan(
+            style: const TextStyle(fontSize: 11, color: Colors.grey),
+            children: [
+              const TextSpan(
+                text: "QNA: ",
+                style: TextStyle(fontSize: kIsWeb ? 15 : null),
+                ),
+              TextSpan(
+                text: "QNA: ${item.qna}",
+                style: const TextStyle(color: Colors.indigo, fontWeight: FontWeight.bold, fontSize: kIsWeb ? 15 : null),
+              ),
+              const TextSpan(
+                text: " | AÑO: ",
+                style: TextStyle(fontSize: kIsWeb ? 15 : null),
+                ),
+              TextSpan(
+                text: "${item.anio}",
+                style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: kIsWeb ? 15 : null),
+              ),
+              TextSpan(
+                text: " | RFC: ${item.rfc}",
+                style: TextStyle(fontSize: kIsWeb ? 15 : null),),
+            ],
+          ),
         ),
       ),
-      trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+      trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(
