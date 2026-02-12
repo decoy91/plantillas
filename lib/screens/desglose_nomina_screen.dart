@@ -352,7 +352,7 @@ class DesgloseNominaScreen extends StatelessWidget {
                 dense: true,
                 visualDensity: VisualDensity.compact,
                 title: Text(e.key, style: const TextStyle(fontSize: 13)),
-                trailing: Text(fmt.format(e.value), style: TextStyle(color: color.withOpacity(0.7), fontWeight: FontWeight.bold)),
+                trailing: Text(fmt.format(e.value), style: TextStyle(color: color.withValues(alpha: 0.7), fontWeight: FontWeight.bold)),
               )),
         ],
       ),

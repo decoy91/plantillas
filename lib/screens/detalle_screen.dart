@@ -1,4 +1,3 @@
-//lib/screens/detalle_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; 
 import 'package:intl/intl.dart';
@@ -48,6 +47,17 @@ class DetalleRegistroScreen extends StatelessWidget {
   static const int bitHoras = 2147483648;
   static const int bitNumCheq = 4294967296;
 
+  // --- FUNCIÓN DE PERMISOS COMPATIBLE CON WEB (BigInt) ---
+  bool _tienePermiso(int bitRequerido) {
+    final BigInt mascaraActual = BigInt.tryParse(permisos.toString()) ?? BigInt.zero;
+    final BigInt bitReq = BigInt.from(bitRequerido);
+    return (mascaraActual & bitReq) != BigInt.zero;
+  }
+
+  String _dato(int bitRequerido, String? valorReal) {
+    return _tienePermiso(bitRequerido) ? (valorReal ?? "N/A") : "**********";
+  }
+
   // --- FUNCIÓN PARA COPIAR AL PORTAPAPELES ---
   void _copiarTexto(BuildContext context, String titulo, String contenido) {
     Clipboard.setData(ClipboardData(text: contenido)).then((_) {
@@ -66,7 +76,6 @@ class DetalleRegistroScreen extends StatelessWidget {
     String textoACopiar = "*$titulo*\n";
     for (var widget in children) {
       if (widget is Padding) {
-        // Intentamos extraer texto de Row o Column hijos
         try {
           final row = widget.child as Row;
           final label = (row.children[0] as Expanded).child as Text;
@@ -76,12 +85,6 @@ class DetalleRegistroScreen extends StatelessWidget {
       }
     }
     _copiarTexto(context, titulo, textoACopiar);
-  }
-
-  String _dato(int bitRequerido, String? valorReal) {
-    final int mascaraActual = int.tryParse(permisos.toString()) ?? 0;
-    final bool tienePermiso = (mascaraActual & bitRequerido) != 0;
-    return tienePermiso ? (valorReal ?? "N/A") : "**********";
   }
 
   Map<String, dynamic> _obtenerInfoGenero() {
@@ -134,8 +137,6 @@ class DetalleRegistroScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final int mascaraActual = int.tryParse(permisos.toString()) ?? 0;
-
     return Scaffold(
       appBar: AppBar(
         title: Text("Detalle (${registro.qna}/${registro.anio})"),
@@ -169,7 +170,9 @@ class DetalleRegistroScreen extends StatelessWidget {
                 children: [
                   _buildHeader(),
                   const SizedBox(height: 15),
-                  if ((mascaraActual & (bitPer | bitDed | bitNeto)) != 0) _buildFinancialCard(context),
+                  // Se aplica BigInt también aquí para la visibilidad de la tarjeta financiera
+                  if (_tienePermiso(bitPer) || _tienePermiso(bitDed) || _tienePermiso(bitNeto)) 
+                    _buildFinancialCard(context),
                 ],
               ),
             ),
@@ -179,7 +182,6 @@ class DetalleRegistroScreen extends StatelessWidget {
                 child: Column(
                   children: [
                     const SizedBox(height: 10),
-                    // --- SECCIÓN DE PENSIONES (SOLO SI EXISTEN) ---
                     if (registro.pensiones.isNotEmpty)
                       _buildPensionSection(context),
 
@@ -237,10 +239,8 @@ class DetalleRegistroScreen extends StatelessWidget {
     );
   }
 
-  // --- WIDGET PARA LA SECCIÓN DE PENSIONES ---
   Widget _buildPensionSection(BuildContext context) {
     final fmt = NumberFormat.currency(locale: 'es_MX', symbol: '\$');
-    
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
@@ -336,75 +336,61 @@ class DetalleRegistroScreen extends StatelessWidget {
   }
 
   Widget _buildFinancialCard(BuildContext context) {
-  final int mascaraActual = int.tryParse(permisos.toString()) ?? 0;
-  final fmt = NumberFormat.currency(locale: 'es_MX', symbol: '\$');
-
-  // Usamos Material e InkWell para que la tarjeta sea interactiva (clickable)
-  return Material(
-    color: Colors.transparent,
-    child: InkWell(
-      onTap: () {
-        // Navegación a la nueva pantalla de desglose
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => DesgloseNominaScreen(registro: registro),
-          ),
-        );
-      },
-      borderRadius: BorderRadius.circular(20),
-      child: Stack(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.indigo.shade700, Colors.indigo.shade500],
+    final fmt = NumberFormat.currency(locale: 'es_MX', symbol: '\$');
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => DesgloseNominaScreen(registro: registro),
+            ),
+          );
+        },
+        borderRadius: BorderRadius.circular(20),
+        child: Stack(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [Colors.indigo.shade700, Colors.indigo.shade500]),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [BoxShadow(color: Colors.indigo.withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 5))],
               ),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.indigo.withValues(alpha: 0.3),
-                  blurRadius: 10,
-                  offset: const Offset(0, 5),
-                )
-              ],
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _moneyCol("PERCEPCIÓN", _tienePermiso(bitPer), registro.per, Colors.white),
+                  _moneyCol("DEDUCCIÓN", _tienePermiso(bitDed), registro.ded, Colors.white),
+                  _moneyCol("NETO", _tienePermiso(bitNeto), registro.neto, Colors.greenAccent, isBold: true),
+                ],
+              ),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _moneyCol("PERCEPCIÓN", (mascaraActual & bitPer) != 0, registro.per, Colors.white),
-                _moneyCol("DEDUCCIÓN", (mascaraActual & bitDed) != 0, registro.ded, Colors.white),
-                _moneyCol("NETO", (mascaraActual & bitNeto) != 0, registro.neto, Colors.greenAccent, isBold: true),
-              ],
+            Positioned(
+              top: 5,
+              right: 5,
+              child: IconButton(
+                icon: const Icon(Icons.copy_rounded, size: 18, color: Colors.white70),
+                onPressed: () {
+                  String texto = "*DETALLE ECONÓMICO*\n";
+                  texto += "Percepciones: ${_tienePermiso(bitPer) ? fmt.format(registro.per) : "****"}\n";
+                  texto += "Deducciones: ${_tienePermiso(bitDed) ? fmt.format(registro.ded) : "****"}\n";
+                  texto += "Neto: ${_tienePermiso(bitNeto) ? fmt.format(registro.neto) : "****"}";
+                  _copiarTexto(context, "Montos Económicos", texto);
+                },
+              ),
             ),
-          ),
-          // Botón de copiar (Se mantiene independiente sobre la tarjeta)
-          Positioned(
-            top: 5,
-            right: 5,
-            child: IconButton(
-              icon: const Icon(Icons.copy_rounded, size: 18, color: Colors.white70),
-              onPressed: () {
-                String texto = "*DETALLE ECONÓMICO*\n";
-                texto += "Percepciones: ${((mascaraActual & bitPer) != 0) ? fmt.format(registro.per) : "****"}\n";
-                texto += "Deducciones: ${((mascaraActual & bitDed) != 0) ? fmt.format(registro.ded) : "****"}\n";
-                texto += "Neto: ${((mascaraActual & bitNeto) != 0) ? fmt.format(registro.neto) : "****"}";
-                _copiarTexto(context, "Montos Económicos", texto);
-              },
+            Positioned(
+              bottom: 8,
+              right: 15,
+              child: Icon(Icons.touch_app, size: 14, color: Colors.white.withValues(alpha: 0.5)),
             ),
-          ),
-          // Pequeño indicador visual de que es expandible (Opcional)
-          Positioned(
-            bottom: 8,
-            right: 15,
-            child: Icon(Icons.touch_app, size: 14, color: Colors.white.withValues(alpha: 0.5)),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _moneyCol(String label, bool tienePermiso, double val, Color color, {bool isBold = false}) {
     final fmt = NumberFormat.currency(locale: 'es_MX', symbol: '\$');

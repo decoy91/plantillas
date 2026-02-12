@@ -4,7 +4,7 @@ import '../models/registro_model.dart';
 
 class ApiService {
   // Cambia esto por la IP de tu VPS o tu dominio
-  static const String baseUrl = "http://76.13.98.218:8000";
+  static const String baseUrl = "https://klificapp.cloud";
 
   // --- MÉTODO DE LOGIN ---
   Future<Map<String, dynamic>> login(String usuario, String contra) async {
