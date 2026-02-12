@@ -149,24 +149,25 @@ class ApiService {
     }
   }
 
-  Future<bool> cambiarMiPassword(String usuario, String nuevaPass) async {
-    try {
-      final response = await http.post(
-        Uri.parse("$baseUrl/usuarios/cambiar_pass"),
-        headers: {"Content-Type": "application/json"},
-        body: json.encode({
-          "user": usuario,
-          "pass_word": nuevaPass,
-        }),
-      );
+  Future<bool> cambiarMiPassword(String usuario, String nuevaContra) async {
+  try {
+    // Asegúrate que la URL apunte al nuevo endpoint /cambiar_password
+    final response = await http.post(
+      Uri.parse('$baseUrl/cambiar_password'),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        "usuario": usuario,        // Debe coincidir con el modelo en Python
+        "nueva_contra": nuevaContra // Debe coincidir con el modelo en Python
+      }),
+    );
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        return data['success'] == true;
-      }
-      return false;
-    } catch (e) {
-      return false;
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data['success'] == true;
     }
+    return false;
+  } catch (e) {
+    return false;
   }
+}
 }

@@ -92,44 +92,91 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
   }
 
   void _mostrarDialogoCambiarPass() {
-    final TextEditingController newPassCtrl = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
-          children: [Icon(Icons.vpn_key, color: Colors.indigo), SizedBox(width: 10), Text("Cambiar Contraseña")],
-        ),
-        content: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 400),
-          child: TextField(
-            controller: newPassCtrl,
-            obscureText: true,
-            decoration: const InputDecoration(labelText: "Nueva Contraseña", border: OutlineInputBorder()),
+  final TextEditingController newPassCtrl = TextEditingController();
+  
+  showDialog(
+    context: context,
+    barrierDismissible: false, 
+    builder: (dialogContext) => StatefulBuilder( // Añadimos StatefulBuilder para el botón de carga
+      builder: (context, setDialogState) {
+        bool isUpdating = false; // Estado local para el loading
+
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Row(
+            children: [
+              Icon(Icons.vpn_key, color: Colors.indigo), 
+              SizedBox(width: 10), 
+              Text("Cambiar Contraseña")
+            ],
           ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCELAR")),
-          FilledButton(
-            onPressed: () async {
-              if (newPassCtrl.text.trim().isEmpty) return;
-              final messenger = ScaffoldMessenger.of(context);
-              final navigator = Navigator.of(context);
-              final success = await _apiService.cambiarMiPassword(widget.usuario, newPassCtrl.text.trim());
-              if (!mounted) return;
-              navigator.pop();
-              if (success) {
-                messenger.showSnackBar(const SnackBar(content: Text("Contraseña actualizada"), backgroundColor: Colors.green));
-              } else {
-                messenger.showSnackBar(const SnackBar(content: Text("Error"), backgroundColor: Colors.red));
-              }
-            },
-            child: const Text("ACTUALIZAR"),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 400),
+            child: TextField(
+              controller: newPassCtrl,
+              obscureText: true,
+              enabled: !isUpdating, // Bloqueamos el campo mientras actualiza
+              decoration: const InputDecoration(
+                labelText: "Nueva Contraseña", 
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.lock_outline),
+              ),
+            ),
           ),
-        ],
-      ),
-    );
-  }
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext), 
+              child: const Text("CANCELAR")
+            ),
+            FilledButton(
+              onPressed: () async {
+                final String password = newPassCtrl.text.trim();
+                if (password.isEmpty) return;
+
+                setDialogState(() => isUpdating = true); // Mostramos carga
+
+                final messenger = ScaffoldMessenger.of(context);
+                final navigator = Navigator.of(dialogContext);
+
+                try {
+                  // Esta llamada ahora coincidirá con el @app.post("/cambiar_password") del api.py
+                  final success = await _apiService.cambiarMiPassword(widget.usuario, password);
+
+                  if (!mounted) return;
+
+                  navigator.pop(); // Cerramos el diálogo
+
+                  if (success) {
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text("Contraseña actualizada con éxito"), 
+                        backgroundColor: Colors.green
+                      )
+                    );
+                  } else {
+                    _errorSnackBar(messenger, "No se pudo actualizar. Verifica tu conexión.");
+                  }
+                } catch (e) {
+                  if (!mounted) return;
+                  navigator.pop();
+                  _errorSnackBar(messenger, "Error de conexión con el servidor");
+                }
+              },
+              child: const Text("ACTUALIZAR"),
+            ),
+          ],
+        );
+      },
+    ),
+  );
+}
+
+// Método auxiliar para limpiar el código
+void _errorSnackBar(ScaffoldMessengerState messenger, String texto) {
+  messenger.showSnackBar(
+    SnackBar(content: Text(texto), backgroundColor: Colors.red)
+  );
+}
 
   Future<bool> _confirmarSalidaApp() async {
     return await showDialog(
