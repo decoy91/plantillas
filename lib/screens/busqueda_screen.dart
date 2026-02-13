@@ -29,10 +29,14 @@ class BusquedaScreen extends StatefulWidget {
 class _BusquedaScreenState extends State<BusquedaScreen> {
   final ApiService _apiService = ApiService();
   final TextEditingController _searchController = TextEditingController();
+  // Se agrega FocusNode para detectar el regreso a la caja de texto
+  final FocusNode _searchFocusNode = FocusNode();
 
   List<RegistroPlantilla> _resultados = [];
   bool _isSearching = false;
   bool _isGrouped = true;
+  // Se agrega variable para saber si ya se completó una búsqueda
+  bool _busquedaRealizada = false;
   Timer? _debounce;
 
   final Map<String, List<RegistroPlantilla>> _cacheBusquedas = {};
@@ -41,6 +45,18 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
   void initState() {
     super.initState();
     _cargarPreferenciaVista();
+
+    // Listener para el FocusNode: limpia texto y resetea mensajes al ganar foco
+    _searchFocusNode.addListener(() {
+      if (_searchFocusNode.hasFocus && _searchController.text.isNotEmpty) {
+        _searchController.clear();
+        setState(() {
+          _resultados = [];
+          _busquedaRealizada = false;
+        });
+      }
+    });
+
     _searchController.addListener(() {
       final String text = _searchController.text;
       if (text != text.toUpperCase()) {
@@ -92,91 +108,87 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
   }
 
   void _mostrarDialogoCambiarPass() {
-  final TextEditingController newPassCtrl = TextEditingController();
-  
-  showDialog(
-    context: context,
-    barrierDismissible: false, 
-    builder: (dialogContext) => StatefulBuilder( // Añadimos StatefulBuilder para el botón de carga
-      builder: (context, setDialogState) {
-        bool isUpdating = false; // Estado local para el loading
+    final TextEditingController newPassCtrl = TextEditingController();
+    
+    showDialog(
+      context: context,
+      barrierDismissible: false, 
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          bool isUpdating = false;
 
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Row(
-            children: [
-              Icon(Icons.vpn_key, color: Colors.indigo), 
-              SizedBox(width: 10), 
-              Text("Cambiar Contraseña")
-            ],
-          ),
-          content: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 400),
-            child: TextField(
-              controller: newPassCtrl,
-              obscureText: true,
-              enabled: !isUpdating, // Bloqueamos el campo mientras actualiza
-              decoration: const InputDecoration(
-                labelText: "Nueva Contraseña", 
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.lock_outline),
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: const Row(
+              children: [
+                Icon(Icons.vpn_key, color: Colors.indigo), 
+                SizedBox(width: 10), 
+                Text("Cambiar Contraseña")
+              ],
+            ),
+            content: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 400),
+              child: TextField(
+                controller: newPassCtrl,
+                obscureText: true,
+                enabled: !isUpdating,
+                decoration: const InputDecoration(
+                  labelText: "Nueva Contraseña", 
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.lock_outline),
+                ),
               ),
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext), 
-              child: const Text("CANCELAR")
-            ),
-            FilledButton(
-              onPressed: () async {
-                final String password = newPassCtrl.text.trim();
-                if (password.isEmpty) return;
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext), 
+                child: const Text("CANCELAR")
+              ),
+              FilledButton(
+                onPressed: () async {
+                  final String password = newPassCtrl.text.trim();
+                  if (password.isEmpty) return;
 
-                setDialogState(() => isUpdating = true); // Mostramos carga
+                  setDialogState(() => isUpdating = true);
 
-                final messenger = ScaffoldMessenger.of(context);
-                final navigator = Navigator.of(dialogContext);
+                  final messenger = ScaffoldMessenger.of(context);
+                  final navigator = Navigator.of(dialogContext);
 
-                try {
-                  // Esta llamada ahora coincidirá con el @app.post("/cambiar_password") del api.py
-                  final success = await _apiService.cambiarMiPassword(widget.usuario, password);
+                  try {
+                    final success = await _apiService.cambiarMiPassword(widget.usuario, password);
+                    if (!mounted) return;
+                    navigator.pop();
 
-                  if (!mounted) return;
-
-                  navigator.pop(); // Cerramos el diálogo
-
-                  if (success) {
-                    messenger.showSnackBar(
-                      const SnackBar(
-                        content: Text("Contraseña actualizada con éxito"), 
-                        backgroundColor: Colors.green
-                      )
-                    );
-                  } else {
-                    _errorSnackBar(messenger, "No se pudo actualizar. Verifica tu conexión.");
+                    if (success) {
+                      messenger.showSnackBar(
+                        const SnackBar(
+                          content: Text("Contraseña actualizada con éxito"), 
+                          backgroundColor: Colors.green
+                        )
+                      );
+                    } else {
+                      _errorSnackBar(messenger, "No se pudo actualizar. Verifica tu conexión.");
+                    }
+                  } catch (e) {
+                    if (!mounted) return;
+                    navigator.pop();
+                    _errorSnackBar(messenger, "Error de conexión con el servidor");
                   }
-                } catch (e) {
-                  if (!mounted) return;
-                  navigator.pop();
-                  _errorSnackBar(messenger, "Error de conexión con el servidor");
-                }
-              },
-              child: const Text("ACTUALIZAR"),
-            ),
-          ],
-        );
-      },
-    ),
-  );
-}
+                },
+                child: const Text("ACTUALIZAR"),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
 
-// Método auxiliar para limpiar el código
-void _errorSnackBar(ScaffoldMessengerState messenger, String texto) {
-  messenger.showSnackBar(
-    SnackBar(content: Text(texto), backgroundColor: Colors.red)
-  );
-}
+  void _errorSnackBar(ScaffoldMessengerState messenger, String texto) {
+    messenger.showSnackBar(
+      SnackBar(content: Text(texto), backgroundColor: Colors.red)
+    );
+  }
 
   Future<bool> _confirmarSalidaApp() async {
     return await showDialog(
@@ -213,17 +225,24 @@ void _errorSnackBar(ScaffoldMessengerState messenger, String texto) {
   void _ejecutarBusqueda(String query) async {
     query = query.trim().toUpperCase();
     if (query.length < 3) {
-      setState(() => _resultados = []);
+      setState(() {
+        _resultados = [];
+        _busquedaRealizada = false;
+      });
       return;
     }
     
-    setState(() => _isSearching = true);
+    setState(() {
+      _isSearching = true;
+      _busquedaRealizada = false; // Reset para no mostrar error mientras carga
+    });
 
     if (_cacheBusquedas.containsKey(query)) {
       if (mounted) {
         setState(() {
           _resultados = _cacheBusquedas[query]!;
           _isSearching = false;
+          _busquedaRealizada = true;
         });
       }
       return;
@@ -232,9 +251,15 @@ void _errorSnackBar(ScaffoldMessengerState messenger, String texto) {
     try {
       final res = await _apiService.buscarRegistros(query);
       _cacheBusquedas[query] = res;
-      if (mounted) setState(() => _resultados = res);
+      if (mounted) {
+        setState(() {
+          _resultados = res;
+          _busquedaRealizada = true;
+        });
+      }
     } catch (e) {
       debugPrint("Error en búsqueda: $e");
+      if (mounted) setState(() => _busquedaRealizada = true);
     } finally {
       if (mounted) setState(() => _isSearching = false);
     }
@@ -244,7 +269,6 @@ void _errorSnackBar(ScaffoldMessengerState messenger, String texto) {
   Widget build(BuildContext context) {
     final agrupados = _agruparYOrdenar(_resultados);
     final listaAnios = agrupados.keys.toList()..sort((a, b) => b.compareTo(a));
-    // Definimos el ancho máximo para la web
     final double maxContentWidth = kIsWeb ? 850 : double.infinity;
 
     return PopScope(
@@ -253,7 +277,7 @@ void _errorSnackBar(ScaffoldMessengerState messenger, String texto) {
         if (didPop) return;
         if (await _confirmarSalidaApp() && mounted) {
           if (kIsWeb) {
-             // En web no cerramos la pestaña por comando, se sugiere logout
+             // En web no se cierra
           } else if (Platform.isAndroid) {
             SystemNavigator.pop();
           } else {exit(0);}
@@ -302,6 +326,7 @@ void _errorSnackBar(ScaffoldMessengerState messenger, String texto) {
                     padding: const EdgeInsets.all(16.0),
                     child: TextField(
                       controller: _searchController,
+                      focusNode: _searchFocusNode, // Asignación del nodo
                       onSubmitted: (value) => _ejecutarBusqueda(value),
                       textInputAction: TextInputAction.search,
                       textCapitalization: TextCapitalization.characters,
@@ -315,7 +340,10 @@ void _errorSnackBar(ScaffoldMessengerState messenger, String texto) {
                                 icon: const Icon(Icons.clear), 
                                 onPressed: () { 
                                   _searchController.clear(); 
-                                  setState(() => _resultados = []); 
+                                  setState(() {
+                                    _resultados = [];
+                                    _busquedaRealizada = false;
+                                  }); 
                                 }
                               )
                             : null,
@@ -333,10 +361,14 @@ void _errorSnackBar(ScaffoldMessengerState messenger, String texto) {
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                //Icon(Icons.search_off, size: 80, color: Colors.grey.shade300),
                                 const SizedBox(height: 10),
                                 Text(
-                                  _isSearching ? "Stalkeando 😱..." : "¿A quién vamos a buscar? 😈", 
+                                  _isSearching 
+                                    ? "Stalkeando 😱..." 
+                                    : (_busquedaRealizada 
+                                        ? "¡Ups! El dato requerido no fue encontrado 🔍" 
+                                        : "¿A quién vamos a buscar? 😈"), 
+                                  textAlign: TextAlign.center,
                                   style: TextStyle(fontSize: kIsWeb ? 35 : 20, color: Colors.grey.shade500)
                                 ),
                               ],
@@ -365,7 +397,6 @@ void _errorSnackBar(ScaffoldMessengerState messenger, String texto) {
           margin: const EdgeInsets.symmetric(vertical: 8),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
           child: ExpansionTile(
-            // initiallyExpanded: index == 0, // Expandir el año más reciente por defecto
             shape: const Border(),
             collapsedShape: const Border(),
             leading: const Icon(Icons.calendar_today, color: Colors.indigo),
@@ -415,7 +446,7 @@ void _errorSnackBar(ScaffoldMessengerState messenger, String texto) {
                 style: TextStyle(fontSize: kIsWeb ? 15 : null),
                 ),
               TextSpan(
-                text: "QNA: ${item.qna}",
+                text: "${item.qna}",
                 style: const TextStyle(color: Colors.indigo, fontWeight: FontWeight.bold, fontSize: kIsWeb ? 15 : null),
               ),
               const TextSpan(
@@ -448,6 +479,7 @@ void _errorSnackBar(ScaffoldMessengerState messenger, String texto) {
 
   @override
   void dispose() {
+    _searchFocusNode.dispose(); // Liberar nodo
     _searchController.dispose();
     _debounce?.cancel();
     super.dispose();
