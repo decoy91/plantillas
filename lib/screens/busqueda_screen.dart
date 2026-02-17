@@ -29,15 +29,16 @@ class BusquedaScreen extends StatefulWidget {
 class _BusquedaScreenState extends State<BusquedaScreen> {
   final ApiService _apiService = ApiService();
   final TextEditingController _searchController = TextEditingController();
-  // Se agrega FocusNode para detectar el regreso a la caja de texto
   final FocusNode _searchFocusNode = FocusNode();
 
   List<RegistroPlantilla> _resultados = [];
   bool _isSearching = false;
   bool _isGrouped = true;
-  // Se agrega variable para saber si ya se completó una búsqueda
   bool _busquedaRealizada = false;
   Timer? _debounce;
+
+  // Variable para almacenar el catálogo una sola vez
+  Map<String, String> _catalogoConceptos = {};
 
   final Map<String, List<RegistroPlantilla>> _cacheBusquedas = {};
 
@@ -45,8 +46,8 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
   void initState() {
     super.initState();
     _cargarPreferenciaVista();
+    _cargarCatalogo(); // Carga el catálogo al iniciar la pantalla
 
-    // Listener para el FocusNode: limpia texto y resetea mensajes al ganar foco
     _searchFocusNode.addListener(() {
       if (_searchFocusNode.hasFocus && _searchController.text.isNotEmpty) {
         _searchController.clear();
@@ -68,6 +69,21 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
       setState(() {});
     });
   }
+
+  // Método para cargar el catálogo de la base de datos una sola vez
+  Future<void> _cargarCatalogo() async {
+  try {
+    final cat = await _apiService.obtenerCatalogoConceptos();
+    // Debug
+    if (mounted) {
+      setState(() {
+        _catalogoConceptos = cat;
+      });
+    }
+  } catch (e) {
+    //
+  }
+}
 
   Future<void> _cargarPreferenciaVista() async {
     final prefs = await SharedPreferences.getInstance();
@@ -234,7 +250,7 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
     
     setState(() {
       _isSearching = true;
-      _busquedaRealizada = false; // Reset para no mostrar error mientras carga
+      _busquedaRealizada = false;
     });
 
     if (_cacheBusquedas.containsKey(query)) {
@@ -326,7 +342,7 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
                     padding: const EdgeInsets.all(16.0),
                     child: TextField(
                       controller: _searchController,
-                      focusNode: _searchFocusNode, // Asignación del nodo
+                      focusNode: _searchFocusNode, 
                       onSubmitted: (value) => _ejecutarBusqueda(value),
                       textInputAction: TextInputAction.search,
                       textCapitalization: TextCapitalization.characters,
@@ -470,7 +486,8 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
         MaterialPageRoute(
           builder: (context) => DetalleRegistroScreen(
             registro: item,
-            permisos: widget.permisosBit, 
+            permisos: widget.permisosBit,
+            catalogoConceptos: _catalogoConceptos, // Se pasa el catálogo precargado
           ),
         ),
       ),
@@ -479,7 +496,7 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
 
   @override
   void dispose() {
-    _searchFocusNode.dispose(); // Liberar nodo
+    _searchFocusNode.dispose();
     _searchController.dispose();
     _debounce?.cancel();
     super.dispose();

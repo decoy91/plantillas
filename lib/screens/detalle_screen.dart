@@ -1,3 +1,4 @@
+//lib/screens/detalle_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; 
 import 'package:flutter/foundation.dart'; // Importante para kIsWeb
@@ -10,8 +11,15 @@ import '../models/registro_model.dart';
 class DetalleRegistroScreen extends StatelessWidget {
   final RegistroPlantilla registro;
   final dynamic permisos; 
+  // Se agrega el catálogo recibido desde BusquedaScreen
+  final Map<String, String>? catalogoConceptos;
 
-  const DetalleRegistroScreen({super.key, required this.registro, required this.permisos});
+  const DetalleRegistroScreen({
+    super.key, 
+    required this.registro, 
+    required this.permisos,
+    this.catalogoConceptos, // Parámetro opcional
+  });
 
   // --- MAPA DE BITS ---
   static const int bitNumEmp = 1;
@@ -138,7 +146,6 @@ class DetalleRegistroScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Definimos el ancho máximo para la web
     final double maxContentWidth = kIsWeb ? 850 : double.infinity;
 
     return 
@@ -355,7 +362,10 @@ class DetalleRegistroScreen extends StatelessWidget {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => DesgloseNominaScreen(registro: registro),
+              builder: (context) => DesgloseNominaScreen(
+                registro: registro,
+                catalogoConceptos: catalogoConceptos, // Se pasa el catálogo a la pantalla final
+              ),
             ),
           );
         },
@@ -449,19 +459,6 @@ class DetalleRegistroScreen extends StatelessWidget {
       ),
     );
   }
-
-  // Widget _buildRow(String label, String value) {
-  //   return Padding(
-  //     padding: const EdgeInsets.only(bottom: 12),
-  //     child: Row(
-  //       crossAxisAlignment: CrossAxisAlignment.start,
-  //       children: [
-  //         Expanded(flex: 2, child: Text(label, style: TextStyle(color: Colors.grey.shade500, fontSize: kIsWeb ? 18 : 13))),
-  //         Expanded(flex: 3, child: Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: kIsWeb ? 18 : 13))),
-  //       ],
-  //     ),
-  //   );
-  // }
 
   String _obtenerNombreBanco(String? codigo) {
     final bancos = {

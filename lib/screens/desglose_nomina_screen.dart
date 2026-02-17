@@ -1,3 +1,4 @@
+//lib/screens/desglose_nomina_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart'; // Importante para kIsWeb
@@ -9,8 +10,18 @@ import '../models/registro_model.dart';
 
 class DesgloseNominaScreen extends StatelessWidget {
   final RegistroPlantilla registro;
+  // Mapa opcional con las descripciones del catálogo cat_perded
+  final Map<String, String>? catalogoConceptos;
 
-  const DesgloseNominaScreen({super.key, required this.registro});
+  const DesgloseNominaScreen({
+    super.key, 
+    required this.registro, 
+    this.catalogoConceptos
+  });
+
+  String _obtenerDescripcion(String codigo) {
+    return catalogoConceptos?[codigo] ?? "";
+  }
 
   // --- FUNCIÓN PARA GENERAR Y COMPARTIR PDF ---
   Future<void> _exportarPDF() async {
@@ -122,8 +133,12 @@ class DesgloseNominaScreen extends StatelessWidget {
         cellStyle: pw.TextStyle(fontSize: fontSize),
         headerStyle: pw.TextStyle(fontSize: fontSize, fontWeight: pw.FontWeight.bold),
         cellHeight: 12,
-        headers: ['CONCEPTO', 'IMPORTE'],
-        data: items.map((e) => [e.key, fmt.format(e.value)]).toList(),
+        headers: ['CÓDIGO', 'DESCRIPCIÓN', 'IMPORTE'],
+        data: items.map((e) => [
+          e.key, 
+          _obtenerDescripcion(e.key), 
+          fmt.format(e.value)
+        ]).toList(),
       ),
       pw.SizedBox(height: 5),
     ]);
@@ -174,7 +189,7 @@ class DesgloseNominaScreen extends StatelessWidget {
     if (perOrd.isNotEmpty) {
       texto += "_Percepciones:_\n";
       for (var e in perOrd) {
-        texto += "• ${e.key}: ${fmt.format(e.value)}\n";
+        texto += "• ${e.key} ${_obtenerDescripcion(e.key)}: ${fmt.format(e.value)}\n";
       }
       texto += "*Total Per:* ${fmt.format(registro.per)}\n";
     }
@@ -182,7 +197,7 @@ class DesgloseNominaScreen extends StatelessWidget {
     if (dedOrd.isNotEmpty) {
       texto += "\n_Deducciones:_\n";
       for (var e in dedOrd) {
-        texto += "• ${e.key}: ${fmt.format(e.value)}\n";
+        texto += "• ${e.key} ${_obtenerDescripcion(e.key)}: ${fmt.format(e.value)}\n";
       }
       texto += "*Total Ded:* ${fmt.format(registro.ded)}\n";
     }
@@ -196,10 +211,10 @@ class DesgloseNominaScreen extends StatelessWidget {
         final perEx = _filtrarConceptos(extra['conceptos'], 'P');
         final dedEx = _filtrarConceptos(extra['conceptos'], 'D');
         if (perEx.isNotEmpty) {
-          for (var e in perEx) { texto += "  • ${e.key}: ${fmt.format(e.value)}\n"; }
+          for (var e in perEx) { texto += "  • ${e.key} ${_obtenerDescripcion(e.key)}: ${fmt.format(e.value)}\n"; }
         }
         if (dedEx.isNotEmpty) {
-          for (var e in dedEx) { texto += "  • ${e.key}: ${fmt.format(e.value)}\n"; }
+          for (var e in dedEx) { texto += "  • ${e.key} ${_obtenerDescripcion(e.key)}: ${fmt.format(e.value)}\n"; }
         }
         texto += "  *Subtotal Extra:* ${fmt.format((extra['per'] ?? 0) - (extra['ded'] ?? 0))}\n";
       }
@@ -287,7 +302,6 @@ class DesgloseNominaScreen extends StatelessWidget {
   }
 
   Widget _buildBannerInfo(NumberFormat fmt) {
-    //double totalNetoTodo = _getNetoTotal();
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -319,7 +333,8 @@ class DesgloseNominaScreen extends StatelessWidget {
       ),
     );
   }
-Widget _moneyCol(String label, double val, Color color, {bool isBold = false}) {
+
+  Widget _moneyCol(String label, double val, Color color, {bool isBold = false}) {
     final fmt = NumberFormat.currency(locale: 'es_MX', symbol: '\$');
     return Column(
       children: [
@@ -331,6 +346,7 @@ Widget _moneyCol(String label, double val, Color color, {bool isBold = false}) {
       ],
     );
   }
+
   Widget _buildCardGrupo(String titulo, List<MapEntry<String, double>> items, Color color, double montoTotal) {
     final fmt = NumberFormat.currency(locale: 'es_MX', symbol: '\$');
     if (items.isEmpty) return const SizedBox.shrink();
@@ -352,12 +368,18 @@ Widget _moneyCol(String label, double val, Color color, {bool isBold = false}) {
               ],
             ),
           ),
-          ...items.map((e) => ListTile(
-                dense: true,
-                visualDensity: VisualDensity.compact,
-                title: Text(e.key, style: const TextStyle(fontSize: kIsWeb ? 18 : 13)),
-                trailing: Text(fmt.format(e.value), style: TextStyle(fontSize: kIsWeb ? 18 : 13, color: color.withValues(alpha: 0.7), fontWeight: FontWeight.bold)),
-              )),
+          ...items.map((e) {
+            final descripcion = _obtenerDescripcion(e.key);
+            return ListTile(
+              dense: true,
+              visualDensity: VisualDensity.compact,
+              title: Text(e.key, style: const TextStyle(fontSize: kIsWeb ? 18 : 13, fontWeight: FontWeight.bold)),
+              subtitle: descripcion.isNotEmpty 
+                  ? Text(descripcion, style: const TextStyle(fontSize: kIsWeb ? 16 : 11, color: Colors.black54)) 
+                  : null,
+              trailing: Text(fmt.format(e.value), style: TextStyle(fontSize: kIsWeb ? 18 : 13, color: color.withValues(alpha: 0.7), fontWeight: FontWeight.bold)),
+            );
+          }),
         ],
       ),
     );

@@ -52,6 +52,23 @@ class ApiService {
     }
   }
 
+  // --- NUEVO: MÉTODO PARA OBTENER CATÁLOGO DE CONCEPTOS ---
+  Future<Map<String, String>> obtenerCatalogoConceptos() async {
+    final url = Uri.parse("$baseUrl/conceptos");
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        Map<String, dynamic> data = jsonDecode(response.body);
+        // Convertimos el Map<String, dynamic> a Map<String, String>
+        return data.map((key, value) => MapEntry(key, value.toString()));
+      } else {
+        return {}; // Si falla, regresamos un mapa vacío para no romper la app
+      }
+    } catch (e) {
+      return {}; // En caso de error de red, regresamos mapa vacío
+    }
+  }
+
   // --- MÉTODO DE ADMINISTRACIÓN (REGISTRO) ---
   Future<Map<String, dynamic>> registrarUsuario(
     Map<String, dynamic> datos,
@@ -139,10 +156,6 @@ class ApiService {
         }),
       );
       
-      // Imprime para debug si falla
-      if (response.statusCode != 200) {
-      }
-      
       return response.statusCode == 200;
     } catch (e) {
       return false;
@@ -150,24 +163,23 @@ class ApiService {
   }
 
   Future<bool> cambiarMiPassword(String usuario, String nuevaContra) async {
-  try {
-    // Asegúrate que la URL apunte al nuevo endpoint /cambiar_password
-    final response = await http.post(
-      Uri.parse('$baseUrl/cambiar_password'),
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode({
-        "usuario": usuario,        // Debe coincidir con el modelo en Python
-        "nueva_contra": nuevaContra // Debe coincidir con el modelo en Python
-      }),
-    );
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/cambiar_password'),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "usuario": usuario,
+          "nueva_contra": nuevaContra
+        }),
+      );
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      return data['success'] == true;
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['success'] == true;
+      }
+      return false;
+    } catch (e) {
+      return false;
     }
-    return false;
-  } catch (e) {
-    return false;
   }
-}
 }
