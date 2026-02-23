@@ -282,7 +282,7 @@ class DesgloseNominaScreen extends StatelessWidget {
                         children: [
                           Padding(
                             padding: const EdgeInsets.only(left: 8, bottom: 8),
-                            child: Text("Concepto: ${extra['qna_label']}",
+                            child: Text("Concepto: ${extra['nombre_nom']}",
                                 style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
                           ),
                           _buildCardGrupo("PERCEPCIONES EXTRA", perExtras, Colors.orange, (extra['per'] as num).toDouble()),
