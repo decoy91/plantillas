@@ -182,4 +182,16 @@ class ApiService {
       return false;
     }
   }
+  Future<String> obtenerAvisoWeb() async {
+    try {
+      final response = await http.get(Uri.parse("$baseUrl/aviso"));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['mensaje'] ?? "";
+      }
+    } catch (e) {
+      //
+    }
+    return "";
+  }
 }

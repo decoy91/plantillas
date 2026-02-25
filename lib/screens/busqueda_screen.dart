@@ -37,8 +37,9 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
   bool _busquedaRealizada = false;
   Timer? _debounce;
 
-  // Variable para almacenar el catálogo una sola vez
+  // Variables para datos dinámicos
   Map<String, String> _catalogoConceptos = {};
+  String _avisoTexto = ""; // Variable para el comunicado
 
   final Map<String, List<RegistroPlantilla>> _cacheBusquedas = {};
 
@@ -46,7 +47,8 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
   void initState() {
     super.initState();
     _cargarPreferenciaVista();
-    _cargarCatalogo(); // Carga el catálogo al iniciar la pantalla
+    _cargarCatalogo(); 
+    _cargarAviso(); // Carga el comunicado al iniciar
 
     _searchFocusNode.addListener(() {
       if (_searchFocusNode.hasFocus && _searchController.text.isNotEmpty) {
@@ -70,20 +72,34 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
     });
   }
 
-  // Método para cargar el catálogo de la base de datos una sola vez
+  // Carga el catálogo de conceptos
   Future<void> _cargarCatalogo() async {
-  try {
-    final cat = await _apiService.obtenerCatalogoConceptos();
-    // Debug
-    if (mounted) {
-      setState(() {
-        _catalogoConceptos = cat;
-      });
+    try {
+      final cat = await _apiService.obtenerCatalogoConceptos();
+      if (mounted) {
+        setState(() {
+          _catalogoConceptos = cat;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error catálogo: $e");
     }
-  } catch (e) {
-    //
   }
-}
+
+  // Carga el comunicado dinámico desde la API
+  Future<void> _cargarAviso() async {
+    try {
+      // Nota: Asegúrate de que obtenerAvisoWeb() esté implementado en ApiService
+      final aviso = await _apiService.obtenerAvisoWeb();
+      if (mounted) {
+        setState(() {
+          _avisoTexto = aviso;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error aviso: $e");
+    }
+  }
 
   Future<void> _cargarPreferenciaVista() async {
     final prefs = await SharedPreferences.getInstance();
@@ -266,6 +282,13 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
 
     try {
       final res = await _apiService.buscarRegistros(query);
+      res.sort((a, b) {
+      int compAnio = (b.anio ?? "").compareTo(a.anio ?? "");
+      if (compAnio != 0) return compAnio;
+      int qnaA = int.tryParse(a.qna ?? "0") ?? 0;
+      int qnaB = int.tryParse(b.qna ?? "0") ?? 0;
+      return qnaB.compareTo(qnaA);
+    });
       _cacheBusquedas[query] = res;
       if (mounted) {
         setState(() {
@@ -338,6 +361,45 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
               constraints: BoxConstraints(maxWidth: maxContentWidth),
               child: Column(
                 children: [
+                  // --- MARQUESINA ANIMADA DE COMUNICADO ---
+                  if (_avisoTexto.isNotEmpty)
+                    Container(
+                      margin: const EdgeInsets.only(top: 16, left: 16, right: 16),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.shade100,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.amber.shade300),
+                      ),
+                      child: ClipRect(
+                        child: _MarqueeWidget(
+                          child: Row(
+                            children: [
+                              const Icon(Icons.campaign, color: Colors.orange, size: 20),
+                              const SizedBox(width: 10),
+                              Text(
+                                _avisoTexto,
+                                style: const TextStyle(
+                                  color: Colors.brown,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: kIsWeb ? 16 : 13,
+                                ),
+                              ),
+                              const SizedBox(width: 100), // Espacio para el efecto infinito
+                              Text(
+                                _avisoTexto,
+                                style: const TextStyle(
+                                  color: Colors.brown,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: kIsWeb ? 16 : 13,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+
                   Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: TextField(
@@ -347,7 +409,7 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
                       textInputAction: TextInputAction.search,
                       textCapitalization: TextCapitalization.characters,
                       decoration: InputDecoration(
-                        hintText: "BUSCAR POR NOMBRE O RFC...",
+                        hintText: "PATERNO MATERNO NOMB. O RFC...",
                         prefixIcon: const Icon(Icons.search),
                         filled: true,
                         fillColor: Colors.white,
@@ -487,7 +549,7 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
           builder: (context) => DetalleRegistroScreen(
             registro: item,
             permisos: widget.permisosBit,
-            catalogoConceptos: _catalogoConceptos, // Se pasa el catálogo precargado
+            catalogoConceptos: _catalogoConceptos,
           ),
         ),
       ),
@@ -500,5 +562,60 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
     _searchController.dispose();
     _debounce?.cancel();
     super.dispose();
+  }
+}
+
+// --- WIDGET AUXILIAR PARA LA ANIMACIÓN TIPO MARQUESINA ---
+class _MarqueeWidget extends StatefulWidget {
+  final Widget child;
+  const _MarqueeWidget({required this.child});
+
+  @override
+  State<_MarqueeWidget> createState() => _MarqueeWidgetState();
+}
+
+class _MarqueeWidgetState extends State<_MarqueeWidget> {
+  late ScrollController _scrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+    // Inicia el scroll después de que se renderiza el widget
+    WidgetsBinding.instance.addPostFrameCallback((_) => _iniciarAnimacion());
+  }
+
+  void _iniciarAnimacion() async {
+    while (_scrollController.hasClients) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (_scrollController.hasClients) {
+        final maxScroll = _scrollController.position.maxScrollExtent;
+        await _scrollController.animateTo(
+          maxScroll,
+          // Velocidad: a mayor número, más lento
+          duration: Duration(seconds: (maxScroll / 40).round() + 5),
+          curve: Curves.linear,
+        );
+        if (_scrollController.hasClients) {
+          _scrollController.jumpTo(0.0);
+        }
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      controller: _scrollController,
+      scrollDirection: Axis.horizontal,
+      physics: const NeverScrollableScrollPhysics(), // Evita que el usuario interfiera
+      child: widget.child,
+    );
   }
 }
