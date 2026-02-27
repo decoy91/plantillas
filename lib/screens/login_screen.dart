@@ -1,7 +1,12 @@
+//lib/screens/login_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart'; // Importante para kIsWeb
 import 'package:lottie/lottie.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:package_info_plus/package_info_plus.dart'; // Librería para versión
+import 'package:url_launcher/url_launcher.dart'; // Librería para abrir link de descarga
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import '../services/api_service.dart';
 import 'busqueda_screen.dart';
 
@@ -24,6 +29,76 @@ class _LoginScreenState extends State<LoginScreen> {
   void initState() {
     super.initState();
     _cargarCredencialesGuardadas();
+    // Solo revisamos actualizaciones si no es Web (en Android/iOS)
+    if (!kIsWeb) {
+      _revisarActualizacion();
+    }
+  }
+
+  // --- LÓGICA DE ACTUALIZACIÓN AUTOMÁTICA ---
+  Future<void> _revisarActualizacion() async {
+    try {
+      // 1. Obtener versión de la app instalada
+      PackageInfo packageInfo = await PackageInfo.fromPlatform();
+      String versionInstalada = packageInfo.version;
+
+      // 2. Consultar versión en tu VPS (ajusta la URL si es necesario)
+      final response = await http.get(Uri.parse("https://klificapp.cloud/updates/version.json"));
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        String versionServidor = data['version'];
+
+        // 3. Comparar (si la del servidor es diferente/nueva)
+        if (versionServidor != versionInstalada) {
+          if (!mounted) return;
+          _mostrarDialogoUpdate(data['url'], data['cambios']);
+        }
+      }
+    } catch (e) {
+      debugPrint("Error revisando actualizaciones: $e");
+    }
+  }
+
+  void _mostrarDialogoUpdate(String url, String cambios) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.system_update, color: Colors.indigo),
+            SizedBox(width: 10),
+            Text("Actualización"),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text("Hay una nueva versión disponible del sistema.", style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            Text(cambios),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("MÁS TARDE"),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final uri = Uri.parse(url);
+              if (await canLaunchUrl(uri)) {
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
+              }
+            },
+            child: const Text("ACTUALIZAR"),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _cargarCredencialesGuardadas() async {
@@ -56,8 +131,6 @@ class _LoginScreenState extends State<LoginScreen> {
       final api = ApiService();
       final response = await api.login(_userController.text, _passController.text);
       
-      debugPrint("Respuesta del servidor: $response");
-
       if (response['success'] == true) {
         await _gestionarPersistencia();
 
@@ -98,7 +171,6 @@ class _LoginScreenState extends State<LoginScreen> {
           ), 
           backgroundColor: esHorario ? Colors.orange.shade800 : Colors.redAccent,
           behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 4),
         ),
       );
     } finally {
@@ -108,7 +180,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Definimos un ancho máximo si es web para que no se estire
     final double maxWidth = kIsWeb ? 450 : double.infinity;
 
     return Scaffold(
@@ -130,7 +201,6 @@ class _LoginScreenState extends State<LoginScreen> {
           child: SingleChildScrollView( 
             padding: const EdgeInsets.all(25.0),
             child: ConstrainedBox(
-              // Aquí limitamos el ancho en la versión Web
               constraints: BoxConstraints(maxWidth: maxWidth),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -143,7 +213,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     child: Lottie.asset(
                       'assets/search.json', 
-                      width: kIsWeb ? 120 : 150, // Un poco más pequeño en web
+                      width: kIsWeb ? 120 : 150,
                       height: kIsWeb ? 120 : 150,
                       errorBuilder: (context, error, stackTrace) => 
                         const Icon(Icons.security, size: 100, color: Colors.white),
@@ -172,7 +242,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       borderRadius: BorderRadius.circular(25),
                     ),
                     child: Padding(
-                      padding: const EdgeInsets.all(30.0), // Más aire interno en web
+                      padding: const EdgeInsets.all(30.0),
                       child: Column(
                         children: [
                           TextField(
@@ -242,7 +312,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 30),
                   const Text(
-                    "v3.5",
+                    "v3.5.0",
                     style: TextStyle(color: Colors.white54, fontSize: 12),
                   ),
                 ],
