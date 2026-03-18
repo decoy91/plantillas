@@ -528,7 +528,7 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
                 style: const TextStyle(color: Colors.indigo, fontWeight: FontWeight.bold, fontSize: kIsWeb ? 15 : null),
               ),
               const TextSpan(
-                text: " | AÑO: ",
+                text: "/",
                 style: TextStyle(fontSize: kIsWeb ? 15 : null),
                 ),
               TextSpan(
@@ -538,6 +538,9 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
               TextSpan(
                 text: " | RFC: ${item.rfc}",
                 style: TextStyle(fontSize: kIsWeb ? 15 : null),),
+              TextSpan(
+                text: " | ${item.codigo}",
+                style: const TextStyle(color: Colors.indigo, fontWeight: FontWeight.bold, fontSize: kIsWeb ? 15 : null),),
             ],
           ),
         ),
