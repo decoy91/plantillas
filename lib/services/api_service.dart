@@ -32,11 +32,12 @@ class ApiService {
     }
   }
 
-  // --- MÉTODO DE BÚSQUEDA ---
-  Future<List<RegistroPlantilla>> buscarRegistros(String termino) async {
+  // --- MÉTODO DE BÚSQUEDA MODIFICADO ---
+  Future<List<RegistroPlantilla>> buscarRegistros(String termino, bool lenta) async {
     if (termino.length < 3) return [];
 
-    final url = Uri.parse("$baseUrl/buscar?termino=$termino");
+    // Ahora incluimos el parámetro 'lenta' en la URL
+    final url = Uri.parse("$baseUrl/buscar?termino=$termino&lenta=$lenta");
 
     try {
       final response = await http.get(url);

@@ -35,11 +35,12 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
   bool _isSearching = false;
   bool _isGrouped = true;
   bool _busquedaRealizada = false;
+  bool _busquedaLenta = false; // <--- AGREGAR ESTA LÍNEA AQUÍ
   Timer? _debounce;
 
   // Variables para datos dinámicos
   Map<String, String> _catalogoConceptos = {};
-  String _avisoTexto = ""; // Variable para el comunicado
+  String _avisoTexto = ""; 
 
   final Map<String, List<RegistroPlantilla>> _cacheBusquedas = {};
 
@@ -48,7 +49,7 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
     super.initState();
     _cargarPreferenciaVista();
     _cargarCatalogo(); 
-    _cargarAviso(); // Carga el comunicado al iniciar
+    _cargarAviso(); 
 
     _searchFocusNode.addListener(() {
       if (_searchFocusNode.hasFocus && _searchController.text.isNotEmpty) {
@@ -72,7 +73,8 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
     });
   }
 
-  // Carga el catálogo de conceptos
+  // ... (Tus funciones _cargarCatalogo, _cargarAviso, _cargarPreferenciaVista, etc. se mantienen igual) ...
+
   Future<void> _cargarCatalogo() async {
     try {
       final cat = await _apiService.obtenerCatalogoConceptos();
@@ -86,10 +88,8 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
     }
   }
 
-  // Carga el comunicado dinámico desde la API
   Future<void> _cargarAviso() async {
     try {
-      // Nota: Asegúrate de que obtenerAvisoWeb() esté implementado en ApiService
       final aviso = await _apiService.obtenerAvisoWeb();
       if (mounted) {
         setState(() {
@@ -269,10 +269,13 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
       _busquedaRealizada = false;
     });
 
-    if (_cacheBusquedas.containsKey(query)) {
+    // Creamos una llave única para el caché que dependa del término Y del modo de búsqueda
+    final String cacheKey = "${query}_lenta_$_busquedaLenta";
+
+    if (_cacheBusquedas.containsKey(cacheKey)) {
       if (mounted) {
         setState(() {
-          _resultados = _cacheBusquedas[query]!;
+          _resultados = _cacheBusquedas[cacheKey]!;
           _isSearching = false;
           _busquedaRealizada = true;
         });
@@ -281,15 +284,19 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
     }
 
     try {
-      final res = await _apiService.buscarRegistros(query);
+      // Enviamos el query y el estado del icono (true/false)
+      final res = await _apiService.buscarRegistros(query, _busquedaLenta);
+      
       res.sort((a, b) {
-      int compAnio = (b.anio ?? "").compareTo(a.anio ?? "");
-      if (compAnio != 0) return compAnio;
-      int qnaA = int.tryParse(a.qna ?? "0") ?? 0;
-      int qnaB = int.tryParse(b.qna ?? "0") ?? 0;
-      return qnaB.compareTo(qnaA);
-    });
-      _cacheBusquedas[query] = res;
+        int compAnio = (b.anio ?? "").compareTo(a.anio ?? "");
+        if (compAnio != 0) return compAnio;
+        int qnaA = int.tryParse(a.qna ?? "0") ?? 0;
+        int qnaB = int.tryParse(b.qna ?? "0") ?? 0;
+        return qnaB.compareTo(qnaA);
+      });
+
+      _cacheBusquedas[cacheKey] = res;
+      
       if (mounted) {
         setState(() {
           _resultados = res;
@@ -385,7 +392,7 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
                                   fontSize: kIsWeb ? 16 : 13,
                                 ),
                               ),
-                              const SizedBox(width: 100), // Espacio para el efecto infinito
+                              const SizedBox(width: 100), 
                               Text(
                                 _avisoTexto,
                                 style: const TextStyle(
@@ -413,8 +420,21 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
                         prefixIcon: const Icon(Icons.search),
                         filled: true,
                         fillColor: Colors.white,
-                        suffixIcon: _searchController.text.isNotEmpty
-                            ? IconButton(
+                        // --- ESTE ES EL SUFFIXICON QUE INTEGRÉ ---
+                        suffixIcon: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: Icon(
+                                _busquedaLenta ? Icons.timer : Icons.bolt,
+                                color: _busquedaLenta ? Colors.orange : Colors.grey,
+                                size: 20,
+                              ),
+                              tooltip: _busquedaLenta ? "Búsqueda Lenta" : "Búsqueda Rápida",
+                              onPressed: () => setState(() => _busquedaLenta = !_busquedaLenta),
+                            ),
+                            if (_searchController.text.isNotEmpty)
+                              IconButton(
                                 icon: const Icon(Icons.clear), 
                                 onPressed: () { 
                                   _searchController.clear(); 
@@ -423,8 +443,10 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
                                     _busquedaRealizada = false;
                                   }); 
                                 }
-                              )
-                            : null,
+                              ),
+                          ],
+                        ),
+                        // --- FIN DEL SUFFIXICON ---
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(15),
                           borderSide: BorderSide.none,
@@ -462,6 +484,8 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
       ),
     );
   }
+
+  // ... (El resto de tus métodos _buildGroupedList, _buildFlatList, _buildResultTile y _MarqueeWidget se mantienen igual) ...
 
   Widget _buildGroupedList(Map<String, List<RegistroPlantilla>> agrupados, List<String> listaAnios) {
     return ListView.builder(
@@ -539,7 +563,7 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
                 text: " | RFC: ${item.rfc}",
                 style: TextStyle(fontSize: kIsWeb ? 15 : null),),
               TextSpan(
-                text: " | ${item.codigo}",
+                text: " | ${item.codigo} - ${item.ur}",
                 style: const TextStyle(color: Colors.indigo, fontWeight: FontWeight.bold, fontSize: kIsWeb ? 15 : null),),
             ],
           ),
@@ -568,7 +592,6 @@ class _BusquedaScreenState extends State<BusquedaScreen> {
   }
 }
 
-// --- WIDGET AUXILIAR PARA LA ANIMACIÓN TIPO MARQUESINA ---
 class _MarqueeWidget extends StatefulWidget {
   final Widget child;
   const _MarqueeWidget({required this.child});
@@ -584,7 +607,6 @@ class _MarqueeWidgetState extends State<_MarqueeWidget> {
   void initState() {
     super.initState();
     _scrollController = ScrollController();
-    // Inicia el scroll después de que se renderiza el widget
     WidgetsBinding.instance.addPostFrameCallback((_) => _iniciarAnimacion());
   }
 
@@ -595,7 +617,6 @@ class _MarqueeWidgetState extends State<_MarqueeWidget> {
         final maxScroll = _scrollController.position.maxScrollExtent;
         await _scrollController.animateTo(
           maxScroll,
-          // Velocidad: a mayor número, más lento
           duration: Duration(seconds: (maxScroll / 40).round() + 5),
           curve: Curves.linear,
         );
@@ -617,7 +638,7 @@ class _MarqueeWidgetState extends State<_MarqueeWidget> {
     return SingleChildScrollView(
       controller: _scrollController,
       scrollDirection: Axis.horizontal,
-      physics: const NeverScrollableScrollPhysics(), // Evita que el usuario interfiera
+      physics: const NeverScrollableScrollPhysics(),
       child: widget.child,
     );
   }
